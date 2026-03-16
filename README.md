@@ -30,7 +30,7 @@ SCIENCEPAL_BASE_URL=https://sciencepal.ai/api
 SCIENCEPAL_ACCESS_TOKEN=<your-token>
 ```
 
-Get your token from [SciencePal](https://sciencepal.ai).
+Get your token from [SciencePal Skills](https://sciencepal.ai/skills).
 
 ## Usage
 
