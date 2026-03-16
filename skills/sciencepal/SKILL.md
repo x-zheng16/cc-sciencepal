@@ -64,20 +64,9 @@ python3 sandbox.py rm <sandbox_id> /workspace/tmp.txt
 
 ## API Reference
 
-Base URL: `$SCIENCEPAL_BASE_URL` (default `https://sciencepal.ai/api`).
-Auth: `Authorization: Bearer $SCIENCEPAL_ACCESS_TOKEN`.
+**LOAD [`references/api.md`](references/api.md) when you need endpoint details, request/response formats, or query parameters.**
 
-| Endpoint                                            | Method | Format    | Purpose             |
-| --------------------------------------------------- | ------ | --------- | ------------------- |
-| `/agent/initiate`                                   | POST   | form-data | Start a new run     |
-| `/agent-run/{id}`                                   | GET    |           | Check run status    |
-| `/agent-run/{id}/stop`                              | POST   |           | Stop a run          |
-| `/thread/{id}/sandbox`                              | GET    |           | Get sandbox info    |
-| `/sandboxes/{id}/files?path=`                       | GET    |           | List files          |
-| `/sandboxes/{id}/files/content?path=`               | GET    |           | Read file content   |
-| `/sandboxes/{id}/files`                             | POST   | form-data | Upload file         |
-| `/sandboxes/{id}/files`                             | DELETE |           | Delete file         |
-| `/project/{id}/sandbox/ensure-active`               | POST   |           | Wake up sandbox     |
+Do NOT load for routine script usage -- the scripts handle API calls internally.
 
 ## NEVER
 
