@@ -1,0 +1,13 @@
+{
+  "name": "cc-sciencepal",
+  "version": "1.0.0",
+  "description": "SciencePal science research agents: run tasks, poll status, download results from sandbox",
+  "author": {
+    "name": "Xiang Zheng",
+    "email": "xiang.zheng@cityu.edu.hk"
+  },
+  "homepage": "https://github.com/x-zheng16/cc-sciencepal",
+  "repository": "https://github.com/x-zheng16/cc-sciencepal",
+  "license": "MIT",
+  "keywords": ["sciencepal", "research", "agent", "science", "biology", "material", "protein"]
+}
