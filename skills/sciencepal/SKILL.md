@@ -78,14 +78,14 @@ Do NOT load for routine script usage -- the scripts handle API calls internally.
 
 ## Error Handling
 
-| Error                        | Cause                                 | Fix                                     |
-| ---------------------------- | ------------------------------------- | --------------------------------------- |
-| 401 Unauthorized             | Token expired or invalid              | Refresh token at sciencepal.ai          |
-| 404 on `/agent-run/{id}`     | Invalid run ID                        | Check ID from start.py output           |
-| 404 on sandbox file read     | File doesn't exist or sandbox destroyed | Try `sandbox.py ls` first to verify   |
-| 422 on `/agent/initiate`     | Sent JSON instead of form-data        | Scripts handle this correctly           |
-| 500 on sandbox operations    | Sandbox crashed or being archived     | Call `ensure-active`, retry             |
-| Timeout on `--wait`          | Task taking too long                  | Check status manually, increase timeout |
+| Error                     | Cause                                   | Fix                                     |
+| ------------------------- | --------------------------------------- | --------------------------------------- |
+| 401 Unauthorized          | Token expired or invalid                | Refresh token at sciencepal.ai          |
+| 404 on `/agent-run/{id}`  | Invalid run ID                          | Check ID from start.py output           |
+| 404 on sandbox file read  | File doesn't exist or sandbox destroyed | Try `sandbox.py ls` first to verify     |
+| 422 on `/agent/initiate`  | Sent JSON instead of form-data          | Scripts handle this correctly           |
+| 500 on sandbox operations | Sandbox crashed or being archived       | Call `ensure-active`, retry             |
+| Timeout on `--wait`       | Task taking too long                    | Check status manually, increase timeout |
 
 ## Rules
 
