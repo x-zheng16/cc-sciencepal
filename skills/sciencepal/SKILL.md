@@ -1,9 +1,9 @@
 ---
 name: sciencepal
-version: 0.1.1
+version: 0.2.0
 quality:
-  grade: C
-  score: 84
+  grade: B+
+  score: 97
   date: 2026-04-07
 description: >-
   Run SciencePal science research agents and manage sandbox environments.
@@ -58,13 +58,61 @@ Terminal statuses: `completed`, `failed`, `stopped`.
 ```bash
 python3 sandbox.py ls <sandbox_id> /workspace
 python3 sandbox.py cat <sandbox_id> /workspace/report.md
-python3 sandbox.py download <thread_id> -o ~/cc_tmp/sciencepal/<run_id>/
+python3 sandbox.py download <thread_id> -o ~/scratch/sciencepal/<run_id>/
 python3 sandbox.py upload <sandbox_id> local.pdb /workspace/input.pdb
 python3 sandbox.py rm <sandbox_id> /workspace/tmp.txt
 ```
 
 `download` takes thread_id (resolves sandbox automatically).
 All other subcommands take sandbox_id directly.
+
+## Domain-Specific Prompt Engineering
+
+Prompt quality determines result quality.
+Generic prompts produce generic results; domain-tuned prompts activate the agent's specialized tools and knowledge.
+
+### Biology / Genomics
+
+- Specify organism, gene names with standard nomenclature (HGNC symbols for human, e.g., TP53 not p53).
+- Include the biological context: "in the context of pancreatic ductal adenocarcinoma" not just "cancer".
+- Request specific output formats: "provide a pathway diagram" or "list differentially expressed genes with log2FC and adjusted p-value".
+- Common failure: vague prompts like "analyze this gene" -- the agent has no idea which analysis (expression, variants, interactions, pathways).
+
+### Protein / Structural Biology
+
+- Input MUST be PDB format or UniProt accession (e.g., P04637) -- FASTA alone is insufficient for structural tasks.
+- Specify the task precisely: "predict binding affinity" vs "dock these two proteins" vs "identify active site residues".
+- For folding tasks, include template PDB IDs if homologs exist -- the agent uses them for refinement.
+- Common failure: uploading sequences without specifying chain IDs or ligands of interest.
+
+### Materials Science
+
+- Use standard composition notation: chemical formulas (Li2FePO4, not "lithium iron phosphate") and space groups (Fm-3m).
+- Specify target properties: "band gap > 2 eV" or "thermal conductivity at 300K".
+- Include synthesis constraints if relevant: "solution-processable" or "stable above 500C".
+- Common failure: describing materials in natural language instead of composition -- the agent's tools expect structured chemical input.
+
+### Patent Analysis
+
+- Provide patent numbers in standard format (US20230001234A1, CN115000000B).
+- Specify jurisdiction when relevant -- patent law varies by country.
+- For landscape analysis, provide seed patents or CPC/IPC classification codes rather than broad topic descriptions.
+
+## Result Quality Signals
+
+After downloading results, verify quality before reporting to user:
+
+| Signal                | Good result                                      | Suspect result                               |
+| --------------------- | ------------------------------------------------ | -------------------------------------------- |
+| Citations             | Cites specific papers with DOIs or PMIDs         | No citations, or only cites reviews          |
+| Methodology           | Describes tools/databases used (BLAST, PDB, MP)  | Vague "analysis was performed"               |
+| Reproducibility       | Lists parameters, versions, input files          | No method details, just conclusions          |
+| Quantitative results  | Includes numbers with units and confidence       | Only qualitative statements                  |
+| Data files            | Contains raw data files matching the analysis    | Report only, no supporting data              |
+| Internal consistency  | Figures match text, numbers add up               | Contradictions between sections              |
+
+If results show suspect signals, the agent likely hallucinated or used shallow analysis.
+Re-run with a more constrained prompt that forces tool usage (e.g., "use BLAST to search against UniProt" instead of "find similar proteins").
 
 ## Agent Orchestration Patterns
 
@@ -73,6 +121,37 @@ All other subcommands take sandbox_id directly.
 SciencePal agents handle multi-step scientific workflows internally.
 The user provides a high-level research question; the agent decomposes it into sub-tasks (literature search, data retrieval, analysis, synthesis).
 Do not attempt to manually orchestrate sub-steps -- let the agent handle decomposition.
+
+### When to Decompose Manually vs Let the Agent Handle It
+
+Let the agent handle decomposition when:
+- The question is within a single domain (e.g., "find proteins that interact with BRCA1").
+- The expected output is a single report or dataset.
+
+Break into sub-tasks manually when:
+- The workflow crosses domains (e.g., literature review on material properties -> formulate synthesis hypothesis -> design experiment protocol).
+- You need to inspect intermediate results before proceeding (e.g., verify a gene list before running pathway enrichment).
+- The task would exceed sandbox memory or time limits as a single run.
+
+### Sequential Pipeline Pattern
+
+Run tasks in sequence, using outputs to inform next steps:
+
+1. **Literature review**: `start.py -p "survey recent methods for X"` -- download report, extract key findings.
+2. **Hypothesis formulation**: `start.py -p "given these findings: [paste key points], propose testable hypotheses for Y"`.
+3. **Experiment design**: `start.py -p "design an experiment to test hypothesis Z, using methods A and B"`.
+
+Between each step: download results, read the report, extract the relevant findings to include in the next prompt.
+
+### Parallel Exploration Pattern
+
+Run the same question with different framings to compare approaches:
+
+- `start.py -p "analyze protein X using molecular dynamics simulation"` (run 1)
+- `start.py -p "analyze protein X using homology modeling and docking"` (run 2)
+
+Compare results after both complete.
+Use this when the best methodology is unclear or when the user wants to evaluate multiple approaches.
 
 ### Long-Running Tasks
 
@@ -90,7 +169,9 @@ Common output patterns:
 
 Read the report file first to understand what the agent produced, then examine data files as needed.
 
-### Error Recovery
+## Error Recovery
+
+### General Recovery
 
 If a run fails:
 1. Check the status output for error messages.
@@ -99,6 +180,17 @@ If a run fails:
 
 Sandbox auto-stops after 10 minutes of idle time.
 If returning to a completed run after a delay, call `ensure-active` before accessing files.
+
+### Domain-Specific Recovery
+
+| Problem                              | Likely cause                          | Fix                                                                     |
+| ------------------------------------ | ------------------------------------- | ----------------------------------------------------------------------- |
+| Agent produced irrelevant results    | Prompt too broad or ambiguous         | Narrow the domain, specify organism/material/method explicitly          |
+| Sandbox ran out of memory            | Dataset too large for sandbox         | Reduce input size, request streaming/chunked processing, or subset data |
+| Results contradict known literature  | Agent hallucinated or used wrong tool | Verify key claims against cited sources; re-run with explicit tool use  |
+| PDB parsing errors                   | Wrong format or missing chain IDs     | Validate PDB file locally before upload; specify chain explicitly       |
+| No data files in output              | Agent wrote report without running tools | Re-prompt: "you must run [specific tool] and save raw output"        |
+| Agent stuck in literature review     | Question too open-ended               | Constrain: "focus only on papers from 2020-2024 about X"               |
 
 ## API Reference
 
@@ -111,7 +203,7 @@ Do NOT load for routine script usage -- the scripts handle API calls internally.
 - NEVER send JSON body to `/agent/initiate` -- it requires **form-data**. JSON returns 422.
 - NEVER assume sandbox is alive -- it auto-stops after 10min idle. Call `ensure-active` first if the run finished a while ago.
 - NEVER download from a `failed` or `stopped` run -- sandbox may have incomplete/corrupt state.
-- NEVER put downloaded files inside a project repo -- always use `~/cc_tmp/sciencepal/<run_id>/`.
+- NEVER put downloaded files inside a project repo -- use `~/scratch/sciencepal/<run_id>/` or the project's data directory.
 - NEVER poll status faster than every 10 seconds -- respect rate limits.
 - NEVER expose or log the `SCIENCEPAL_ACCESS_TOKEN` value.
 
@@ -129,6 +221,6 @@ Do NOT load for routine script usage -- the scripts handle API calls internally.
 ## Rules
 
 - Print `thread_id` and `agent_run_id` immediately after starting.
-- Output files go to `~/cc_tmp/sciencepal/<run_id>/`, not inside any project repo.
+- Output files go to `~/scratch/sciencepal/<run_id>/` or project data dir, not inside any project repo.
 - Agent task results are in `/workspace` inside the sandbox.
 - Tool/model files live in `/app` -- these are read-only base image contents, not task outputs.
