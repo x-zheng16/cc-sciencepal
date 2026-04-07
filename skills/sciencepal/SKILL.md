@@ -1,12 +1,10 @@
 ---
 name: sciencepal
-description: |
+version: 0.1.1
+description: >-
   Run SciencePal science research agents and manage sandbox environments.
-  Use when user mentions SciencePal, or wants to:
-  (1) run a science research task (biology, material, protein, plasma, patent analysis),
-  (2) check agent run status or wait for completion,
-  (3) browse, download, upload, or delete files in a SciencePal sandbox.
-  Keywords: sciencepal, research agent, sandbox, biology agent, material agent, protein structure, plasma simulation.
+  Use when user mentions SciencePal, or wants to start a science research task (biology, material, protein, plasma, patent analysis),
+  check agent run status, or browse, download, upload, and delete files in a SciencePal sandbox.
   Do NOT use for general web search, paper search, or non-SciencePal tasks.
 ---
 
@@ -18,13 +16,13 @@ Science research agent platform with sandbox compute environments.
 
 ```
 User request
-├── "run/start/analyze with SciencePal" → start.py
-├── "check status / is it done"         → status.py (one-shot or --wait)
-├── "download results"                  → sandbox.py download <thread_id>
-├── "show/list/browse sandbox files"    → sandbox.py ls <sandbox_id> <path>
-├── "read a sandbox file"              → sandbox.py cat <sandbox_id> <path>
-├── "upload file to sandbox"           → sandbox.py upload <sandbox_id> <local> <remote>
-└── "delete sandbox file"              → sandbox.py rm <sandbox_id> <path>
++-- "run/start/analyze with SciencePal" --> start.py
++-- "check status / is it done"         --> status.py (one-shot or --wait)
++-- "download results"                  --> sandbox.py download <thread_id>
++-- "show/list/browse sandbox files"    --> sandbox.py ls <sandbox_id> <path>
++-- "read a sandbox file"              --> sandbox.py cat <sandbox_id> <path>
++-- "upload file to sandbox"           --> sandbox.py upload <sandbox_id> <local> <remote>
++-- "delete sandbox file"              --> sandbox.py rm <sandbox_id> <path>
 ```
 
 ## Scripts
@@ -36,10 +34,11 @@ Working directory: this skill's `scripts/` folder.
 
 ```bash
 python3 start.py -p "user question"
-# → {thread_id, agent_run_id}
+# -> {thread_id, agent_run_id}
 ```
 
-Print both IDs immediately. User needs them for status checks and downloads.
+Print both IDs immediately.
+User needs them for status checks and downloads.
 
 ### status.py -- Check or wait for status
 
@@ -60,7 +59,42 @@ python3 sandbox.py upload <sandbox_id> local.pdb /workspace/input.pdb
 python3 sandbox.py rm <sandbox_id> /workspace/tmp.txt
 ```
 
-`download` takes thread_id (resolves sandbox automatically). All other subcommands take sandbox_id directly.
+`download` takes thread_id (resolves sandbox automatically).
+All other subcommands take sandbox_id directly.
+
+## Agent Orchestration Patterns
+
+### Task Decomposition
+
+SciencePal agents handle multi-step scientific workflows internally.
+The user provides a high-level research question; the agent decomposes it into sub-tasks (literature search, data retrieval, analysis, synthesis).
+Do not attempt to manually orchestrate sub-steps -- let the agent handle decomposition.
+
+### Long-Running Tasks
+
+Science tasks often take 5-30 minutes.
+After starting a run, use `status.py --wait` to poll automatically rather than checking manually in a loop.
+If the user needs to do other work, report the run IDs and offer to check later.
+
+### Result Interpretation
+
+Downloaded results land in `/workspace` inside the sandbox.
+Common output patterns:
+- `report.md` or `summary.md` -- main findings.
+- `data/` -- raw or processed data files.
+- `figures/` -- generated plots or visualizations.
+
+Read the report file first to understand what the agent produced, then examine data files as needed.
+
+### Error Recovery
+
+If a run fails:
+1. Check the status output for error messages.
+2. Review sandbox files for partial results (`sandbox.py ls`).
+3. Reformulate the prompt with more specific constraints and restart.
+
+Sandbox auto-stops after 10 minutes of idle time.
+If returning to a completed run after a delay, call `ensure-active` before accessing files.
 
 ## API Reference
 
@@ -75,6 +109,7 @@ Do NOT load for routine script usage -- the scripts handle API calls internally.
 - NEVER download from a `failed` or `stopped` run -- sandbox may have incomplete/corrupt state.
 - NEVER put downloaded files inside a project repo -- always use `~/cc_tmp/sciencepal/<run_id>/`.
 - NEVER poll status faster than every 10 seconds -- respect rate limits.
+- NEVER expose or log the `SCIENCEPAL_ACCESS_TOKEN` value.
 
 ## Error Handling
 
