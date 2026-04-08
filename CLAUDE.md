@@ -8,7 +8,7 @@ Claude Code plugin for SciencePal -- science research agent platform.
 
 ## Environment
 
-Requires in `~/.claude/.env`:
+Requires in `~/.zshenv.local`:
 - `SCIENCEPAL_ACCESS_TOKEN`
 - `SCIENCEPAL_BASE_URL` (optional, defaults to `https://sciencepal.ai/api`)
 
