@@ -1,10 +1,6 @@
 ---
 name: sciencepal
 version: 0.2.0
-quality:
-  grade: B
-  score: 100
-  date: 2026-04-07
 description: >-
   Run SciencePal science research agents and manage sandbox environments.
   Use when user mentions SciencePal, or wants to start a science research task (biology, material, protein, plasma, patent analysis),
