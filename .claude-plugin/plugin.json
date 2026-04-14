@@ -1,6 +1,6 @@
 {
   "name": "cc-sciencepal",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "SciencePal science research agents: run tasks, poll status, download results from sandbox",
   "author": {
     "name": "Xiang Zheng",

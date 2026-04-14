@@ -1,11 +1,7 @@
 ---
 name: sciencepal
 version: 0.2.0
-description: >-
-  Run SciencePal science research agents and manage sandbox environments.
-  Use when user mentions SciencePal, or wants to start a science research task (biology, material, protein, plasma, patent analysis),
-  check agent run status, or browse, download, upload, and delete files in a SciencePal sandbox.
-  Do NOT use for general web search, paper search, or non-SciencePal tasks.
+description: "Run SciencePal science research agents and manage sandbox environments (biology, materials, protein, plasma, patents). Use for SciencePal tasks, checking agent runs, or browsing/uploading sandbox files. NOT for general web or paper search."
 ---
 
 # SciencePal
