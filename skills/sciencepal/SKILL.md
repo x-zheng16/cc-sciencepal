@@ -23,7 +23,7 @@ User request
 
 ## Scripts
 
-All scripts: `uv run --project ~/cc-omni/cc/python python3 <script>`.
+All scripts: `uv run --project ~/cc-omni/cc/plugin/sciencepal python3 <script>`.
 Working directory: this skill's `scripts/` folder.
 
 ### start.py -- Start a run
