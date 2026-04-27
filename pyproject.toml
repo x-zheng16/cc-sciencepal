@@ -1,0 +1,21 @@
+[project]
+name = "cc-sciencepal"
+version = "0.1.0"
+description = "Plugin-local Python deps for cc-sciencepal skill scripts (start/status/sandbox). Decoupled from shared cc-python (decommissioned 2026-04-25)."
+requires-python = ">=3.12"
+dependencies = [
+    "httpx>=0.28",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "ruff>=0.6",
+]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["B", "C", "E", "F", "I", "N", "T", "W", "UP"]
+ignore = ["B008", "C901", "E402", "E501", "E731", "E741", "N803", "N806", "T201", "UP015"]
