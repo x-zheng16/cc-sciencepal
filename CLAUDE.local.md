@@ -15,5 +15,5 @@ Requires in `~/.zshenv.local`:
 ## Running scripts
 
 ```bash
-uv run --project ~/cc-plugins/cc-python python3 scripts/<script>.py
+uv run --project ~/cc-omni/cc/plugin/sciencepal python3 scripts/<script>.py
 ```
