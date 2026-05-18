@@ -50,7 +50,7 @@ Terminal statuses: `completed`, `failed`, `stopped`.
 ```bash
 python3 sandbox.py ls <sandbox_id> /workspace
 python3 sandbox.py cat <sandbox_id> /workspace/report.md
-python3 sandbox.py download <thread_id> -o ~/scratch/sciencepal/<run_id>/
+python3 sandbox.py download <thread_id> -o <your-slot>/cc-scratch/sciencepal/<run_id>/
 python3 sandbox.py upload <sandbox_id> local.pdb /workspace/input.pdb
 python3 sandbox.py rm <sandbox_id> /workspace/tmp.txt
 ```
@@ -195,7 +195,7 @@ Do NOT load for routine script usage -- the scripts handle API calls internally.
 - NEVER send JSON body to `/agent/initiate` -- it requires **form-data**. JSON returns 422.
 - NEVER assume sandbox is alive -- it auto-stops after 10min idle. Call `ensure-active` first if the run finished a while ago.
 - NEVER download from a `failed` or `stopped` run -- sandbox may have incomplete/corrupt state.
-- NEVER put downloaded files inside a project repo -- use `~/scratch/sciencepal/<run_id>/` or the project's data directory.
+- NEVER put downloaded files inside a project repo -- use `<your-slot>/cc-scratch/sciencepal/<run_id>/` or the project's data directory.
 - NEVER poll status faster than every 10 seconds -- respect rate limits.
 - NEVER expose or log the `SCIENCEPAL_ACCESS_TOKEN` value.
 
@@ -213,6 +213,6 @@ Do NOT load for routine script usage -- the scripts handle API calls internally.
 ## Rules
 
 - Print `thread_id` and `agent_run_id` immediately after starting.
-- Output files go to `~/scratch/sciencepal/<run_id>/` or project data dir, not inside any project repo.
+- Output files go to `<your-slot>/cc-scratch/sciencepal/<run_id>/` or project data dir, not inside any project repo.
 - Agent task results are in `/workspace` inside the sandbox.
 - Tool/model files live in `/app` -- these are read-only base image contents, not task outputs.
