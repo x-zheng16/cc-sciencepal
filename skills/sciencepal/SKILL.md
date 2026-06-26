@@ -1,6 +1,6 @@
 ---
 name: sciencepal
-version: 0.3.0
+version: 0.4.0
 description: "Run and manage SciencePal science-research agent sessions across stg + prd: start tasks, list/status/stop sessions, browse/upload/download sandbox files (biology, materials, protein, plasma, patents). Use for SciencePal tasks, managing your sessions across environments, checking agent runs, or sandbox files. NOT for general web or paper search."
 ---
 
@@ -107,6 +107,39 @@ Generic prompts produce generic results; domain-tuned prompts activate the agent
 - Provide patent numbers in standard format (US20230001234A1, CN115000000B).
 - Specify jurisdiction when relevant -- patent law varies by country.
 - For landscape analysis, provide seed patents or CPC/IPC classification codes rather than broad topic descriptions.
+
+## One-Shot Execution and the Clarify-Gate
+
+By default a fresh task does NOT run to completion in one shot. The agent routes through a `brainstorming` skill whose hard-gate forbids any research execution until the user confirms a plan -- so even a fully-specified prompt triggers one round of clarifying questions and the run parks in the `asked` state (awaiting user input), never reaching `completed`.
+
+Two ways to get a true one-shot run:
+
+1. **Answer the clarifying questions** -- send a follow-up user message, then the agent proceeds.
+2. **Pre-empt the gate with a directive prompt** -- state every parameter the agent would otherwise ask about, and explicitly instruct it not to ask. This skips the clarify round; the run proceeds straight to execution and on to `completed`.
+
+Directive prompt template (verified to bypass the gate):
+
+```
+请直接执行以下研究任务，全程自主完成，无需提问、无需确认计划——范围参数已在下方给出。
+任务：<一句话目标>
+已明确（无需再询问）：对象/体系、维度、文献年份窗口、允许的方法（检索/解析/抓取）、输出语言。
+交付物（保存到 /workspace）：report.md（带引文）、<图/表规格>、<数据表列含 DOI/PMID>。
+请直接开始，不要提问，完成后给出交付物清单与简要总结。
+```
+
+Dimensions to pre-answer (these are what the agent asks about): object/system scope, which mechanism dimensions, literature year-window, whether web-scraping is allowed, output language and format, deliverable granularity.
+
+## /loop Prompt Design
+
+A `/loop` message drives a session across ticks. `/loop <prompt>` self-paces (agent decides when to re-tick, runs to a stop condition); `/loop <interval> <prompt>` re-ticks on a fixed interval; `/loop stop` halts deterministically (already-queued ticks are cancelled, not just the next one).
+
+**Rule: every loop prompt must be a self-contained directive.** A tick runs unattended -- if its prompt trips the clarify-gate it parks in `asked` and the loop cannot answer itself, so the whole loop stalls. Always include "do not ask, complete autonomously".
+
+Three patterns:
+
+- **Self-paced drive-to-complete** (best for finishing a large task autonomously): `/loop 自主推进直至完成，全程不要提问：每轮检索新文献、更新综述/图/表，补全上轮空缺；当覆盖全面、引文齐全且前后一致时停止并输出 /workspace 交付物。`
+- **Interval monitoring** (ongoing literature surveillance): `/loop 24h 检索过去24小时新论文，不要提问：有则更新并追加到 /workspace/updates.md，无则记录"无更新"。`
+- **Bounded refinement** (fixed number of passes): `/loop 共3轮精炼，不要提问：第1轮补机制、第2轮补定量数据、第3轮校验引文与一致性；每轮存版本。`
 
 ## Result Quality Signals
 
