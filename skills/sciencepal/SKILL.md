@@ -1,7 +1,7 @@
 ---
 name: sciencepal
-version: 0.2.0
-description: "Run SciencePal science research agents and manage sandbox environments (biology, materials, protein, plasma, patents). Use for SciencePal tasks, checking agent runs, or browsing/uploading sandbox files. NOT for general web or paper search."
+version: 0.3.0
+description: "Run and manage SciencePal science-research agent sessions across stg + prd: start tasks, list/status/stop sessions, browse/upload/download sandbox files (biology, materials, protein, plasma, patents). Use for SciencePal tasks, managing your sessions across environments, checking agent runs, or sandbox files. NOT for general web or paper search."
 ---
 
 # SciencePal
@@ -11,9 +11,11 @@ Science research agent platform with sandbox compute environments.
 ## Decision Tree
 
 ```
-User request
-+-- "run/start/analyze with SciencePal" --> start.py
+User request  (every script takes --env stg|prd, default stg)
++-- "send a message / start a task"     --> start.py -p "..."  (a SciencePal message = a new session)
++-- "list / manage my sessions"         --> sessions.py
 +-- "check status / is it done"         --> status.py (one-shot or --wait)
++-- "stop a run"                        --> stop.py <agent_run_id>
 +-- "download results"                  --> sandbox.py download <thread_id>
 +-- "show/list/browse sandbox files"    --> sandbox.py ls <sandbox_id> <path>
 +-- "read a sandbox file"              --> sandbox.py cat <sandbox_id> <path>
@@ -23,8 +25,9 @@ User request
 
 ## Scripts
 
-All scripts: `uv run --project ~/cc-omni/cc/plugin/sciencepal python3 <script>`.
-Working directory: this skill's `scripts/` folder.
+All scripts run from this skill's `scripts/` folder: `uv run --no-project --with httpx python3 <script>`.
+
+**Environments.** Every script takes `--env stg|prd` (default `stg`). Two credential sets live in `~/.zshenv.local` (gitignored): `SCIENCEPAL_{STG,PRD}_ACCESS_TOKEN` + `SCIENCEPAL_{STG,PRD}_BASE_URL` (stg = `https://stg.sciencepal.ai/api`, prd = `https://sciencepal.ai/api`). Tokens are short-lived Supabase JWTs — on a 401 the script prints a refresh hint; log into the web app, copy a fresh token, update the var. SciencePal runs sessions **concurrently** (each is its own project + sandbox), so you can start and manage several at once.
 
 ### start.py -- Start a run
 
@@ -44,6 +47,21 @@ python3 status.py <agent_run_id> --wait   # poll until terminal
 ```
 
 Terminal statuses: `completed`, `failed`, `stopped`.
+
+### sessions.py -- List / manage all sessions
+
+```bash
+python3 sessions.py --env prd           # list the account's projects + run statuses
+python3 sessions.py --env stg --json    # raw JSON
+```
+
+The entry point for "manage all my sessions" — see what's running/done across the account, then act on a specific run with status.py / stop.py / sandbox.py.
+
+### stop.py -- Stop a run
+
+```bash
+python3 stop.py <agent_run_id> --env prd
+```
 
 ### sandbox.py -- Sandbox file operations
 

@@ -1,7 +1,7 @@
 {
   "name": "cc-sciencepal",
-  "version": "1.0.1",
-  "description": "SciencePal science research agents: run tasks, poll status, download results from sandbox",
+  "version": "1.1.0",
+  "description": "SciencePal science research agents (stg + prd): start tasks, list/status/stop sessions, browse/download sandbox files",
   "author": {
     "name": "Xiang Zheng",
     "email": "xiang.zheng@cityu.edu.hk"

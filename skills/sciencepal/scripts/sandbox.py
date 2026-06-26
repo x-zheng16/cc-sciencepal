@@ -6,39 +6,14 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
-import os
 import sys
 from pathlib import Path
 
-import httpx
-
-
-def _make_client() -> httpx.AsyncClient:
-    env_path = Path.home() / ".claude" / ".env"
-    if env_path.exists():
-        for raw in env_path.read_text(encoding="utf-8").splitlines():
-            line = raw.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            k, v = line.split("=", 1)
-            k, v = k.strip(), v.strip().strip("\"'")
-            if k and k not in os.environ:
-                os.environ[k] = v
-    token = os.getenv("SCIENCEPAL_ACCESS_TOKEN")
-    if not token:
-        raise RuntimeError("Missing SCIENCEPAL_ACCESS_TOKEN")
-    base_url = os.getenv("SCIENCEPAL_BASE_URL", "https://sciencepal.ai/api")
-    for k in ("ALL_PROXY", "HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy", "all_proxy"):
-        os.environ.pop(k, None)
-    return httpx.AsyncClient(
-        base_url=base_url,
-        headers={"Authorization": f"Bearer {token}"},
-        timeout=60.0,
-    )
+from _spclient import make_client, add_env_arg
 
 
 async def cmd_ls(args) -> None:
-    async with _make_client() as c:
+    async with make_client(args.env) as c:
         r = await c.get(f"/sandboxes/{args.sandbox_id}/files", params={"path": args.path})
         r.raise_for_status()
         for f in r.json().get("files", []):
@@ -47,14 +22,14 @@ async def cmd_ls(args) -> None:
 
 
 async def cmd_cat(args) -> None:
-    async with _make_client() as c:
+    async with make_client(args.env) as c:
         r = await c.get(f"/sandboxes/{args.sandbox_id}/files/content", params={"path": args.path})
         r.raise_for_status()
         sys.stdout.buffer.write(r.content)
 
 
 async def cmd_download(args) -> None:
-    async with _make_client() as c:
+    async with make_client(args.env) as c:
         # resolve sandbox_id from thread_id
         r = await c.get(f"/thread/{args.thread_id}/sandbox")
         r.raise_for_status()
@@ -95,7 +70,7 @@ async def cmd_download(args) -> None:
 
 async def cmd_upload(args) -> None:
     content = Path(args.local_path).read_bytes()
-    async with _make_client() as c:
+    async with make_client(args.env) as c:
         r = await c.post(
             f"/sandboxes/{args.sandbox_id}/files",
             data={"path": args.remote_path},
@@ -106,7 +81,7 @@ async def cmd_upload(args) -> None:
 
 
 async def cmd_rm(args) -> None:
-    async with _make_client() as c:
+    async with make_client(args.env) as c:
         r = await c.request("DELETE", f"/sandboxes/{args.sandbox_id}/files", params={"path": args.path})
         r.raise_for_status()
         print(json.dumps(r.json(), ensure_ascii=False, indent=2))
@@ -114,6 +89,7 @@ async def cmd_rm(args) -> None:
 
 def main() -> None:
     p = argparse.ArgumentParser(description="Sandbox file operations")
+    add_env_arg(p)
     sub = p.add_subparsers(dest="command", required=True)
 
     # ls
