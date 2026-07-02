@@ -13,6 +13,7 @@ Science research agent platform with sandbox compute environments.
 ```
 User request  (every script takes --env stg|prd, default stg)
 +-- "send a message / start a task"     --> start.py -p "..."  (a SciencePal message = a new session)
++-- "follow up / answer its question"   --> followup.py -t <thread_id> -p "..."  (continue an EXISTING session)
 +-- "list / manage my sessions"         --> sessions.py
 +-- "check status / is it done"         --> status.py (one-shot or --wait)
 +-- "stop a run"                        --> stop.py <agent_run_id>
@@ -38,6 +39,16 @@ python3 start.py -p "user question"
 
 Print both IDs immediately.
 User needs them for status checks and downloads.
+
+### followup.py -- Continue an existing session
+
+```bash
+python3 followup.py -t <thread_id> -p "answer or steering text"   # insert message + start agent
+python3 followup.py -t <thread_id> -p "..." --no-start            # queue message only
+# -> {agent_run_id, status, thread_id}
+```
+
+THE way to answer an agent's clarifying questions (the brainstorming gate holds one-shot runs until answered) or steer/continue a finished session. Two-step wire protocol mirroring the web frontend: PostgREST message insert (needs `SCIENCEPAL_{STG,PRD}_SUPABASE_ANON_KEY` in `~/.zshenv.local`; RLS limits inserts to threads the token's user owns) then `POST /thread/{id}/agent/start`. Note: the backend API tolerates expired JWTs but Supabase does not — a 401 here with a "working" token means the token is time-expired; refresh it.
 
 ### status.py -- Check or wait for status
 
