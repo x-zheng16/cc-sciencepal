@@ -16,7 +16,7 @@ write_fixture() {
     cat >"$path" <<EOF
 ## /loop Prompt Design
 
-Three patterns:
+Four patterns:
 
 - **Drive-to-complete** (finish a large task autonomously): \`/loop $arg 自主推进直至完成，不要提问；完成后调用 stop_loop。\`
 
@@ -33,9 +33,9 @@ EOF
     echo "$output"
     [ "$status" -eq 0 ]
 
-    # Population + predicate: three recipe bullets, each asserted to pass, so a scan that
-    # silently stopped matching cannot read as a pass.
-    [ "$(echo "$output" | grep -c '^GATE: PASS ')" -eq 3 ]
+    # Population + predicate: four recipe bullets, each asserted to pass, so a scan that
+    # silently stopped matching cannot read as a pass. Bump this count when a pattern is added.
+    [ "$(echo "$output" | grep -c '^GATE: PASS ')" -eq 4 ]
 }
 
 @test "checker rejects a recipe whose /loop argument is not an interval (positive control)" {

@@ -1,6 +1,6 @@
 ---
 name: sciencepal
-version: 0.5.1
+version: 0.5.2
 description: "Run and manage SciencePal science-research agent sessions across stg + prd: start tasks, list/status/stop sessions, browse/upload/download sandbox files (biology, materials, protein, plasma, patents). Use for SciencePal tasks, managing your sessions across environments, checking agent runs, or sandbox files. NOT for general web or paper search."
 ---
 
@@ -158,11 +158,14 @@ From inside a tick the agent can end the loop itself by calling the `stop_loop` 
 
 **Rule: give the loop its own exit.** Every prompt states a completion condition and instructs the agent to call `stop_loop` when it is met; an interval loop with no exit runs to the cap.
 
-Three patterns:
+**Rule: consistency is a fine exit for a survey and a poor one for a number.** An exit built on internal consistency, or on agreement between paths the agent re-derived itself, is sound against arithmetic slips and unstable fits and worthless against an error in a model specification that every path shares. Agreement is what fires the stop, so a shared specification error is the one class that ends the search *early*, and it arrives with a cross-checked audit trail that makes the wrong number look more trustworthy the harder it was verified. Measured on a quantitative benchmark task: four derivation paths differing in estimator converged inside a 0.044-wide band, all of them the wrong sign, and that agreement triggered `stop_loop`. When the deliverable is quantitative, the exit needs at least one check that does not inherit the primary model's assumptions: a quantity the data determines directly, a control the task itself supplies, a bound from a different measurement channel, or a sign predicted before fitting.
+
+Four patterns:
 
 - **Drive-to-complete** (best for finishing a large task autonomously): `/loop 10m 自主推进直至完成，全程不要提问：每轮检索新文献、更新综述/图/表，补全上轮空缺；当覆盖全面、引文齐全且前后一致时，调用 stop_loop 结束循环并输出 /workspace 交付物。`
 - **Interval monitoring** (ongoing literature surveillance): `/loop 24h 检索过去24小时新论文，不要提问：有则更新并追加到 /workspace/updates.md，无则记录"无更新"。`
 - **Bounded refinement** (fixed number of passes): `/loop 30m 共3轮精炼，不要提问：第1轮补机制、第2轮补定量数据、第3轮校验引文与一致性；每轮存版本；第3轮结束后调用 stop_loop。`
+- **Quantitative deliverable** (the exit must not rest on self-agreement): `/loop 15m 自主推进直至完成，全程不要提问：每轮除主结果外，另跑一条不共享主模型假设的独立校验（数据直接决定的量、任务自带的对照、另一测量通道的界、拟合前预先给出的符号）；只有当该独立校验与主结果一致、且本轮无实质变化时，才调用 stop_loop；若两者不一致，本轮不得结束，改为记录分歧并检查主模型设定。`
 
 ## /compact
 

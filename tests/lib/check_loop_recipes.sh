@@ -5,7 +5,8 @@
 # {"loop": "rejected"} and arms nothing, so a recipe written in that form can never tick.
 # Only `/loop <interval> <prompt>` and the control form `/loop stop` are dispatchable.
 #
-# Scope: the recipe bullets under the "Three patterns:" line. Prose elsewhere in the section
+# Scope: the recipe bullets under the "<N> patterns:" line (the count in that heading changes
+# as patterns are added, so it is matched by shape rather than by word). Prose elsewhere in the section
 # deliberately names the refused form in order to document it, so it is not a recipe and is
 # not checked.
 #
@@ -21,7 +22,7 @@ file="${1:?usage: check_loop_recipes.sh <path-to-SKILL.md>}"
 [ -f "$file" ] || { echo "no such file: $file" >&2; exit 1; }
 
 awk '
-/^Three patterns:$/ { in_recipes = 1; next }
+/^[A-Z][a-z]+ patterns:$/ { in_recipes = 1; next }
 in_recipes && /^## / { in_recipes = 0 }
 in_recipes && /^- \*\*/ {
     if (match($0, /`\/loop [^ `]+/)) {
