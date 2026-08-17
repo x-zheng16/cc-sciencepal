@@ -1,6 +1,6 @@
 ---
 name: sciencepal
-version: 0.5.0
+version: 0.5.1
 description: "Run and manage SciencePal science-research agent sessions across stg + prd: start tasks, list/status/stop sessions, browse/upload/download sandbox files (biology, materials, protein, plasma, patents). Use for SciencePal tasks, managing your sessions across environments, checking agent runs, or sandbox files. NOT for general web or paper search."
 ---
 
@@ -142,15 +142,34 @@ Dimensions to pre-answer (these are what the agent asks about): object/system sc
 
 ## /loop Prompt Design
 
-A `/loop` message drives a session across ticks. `/loop <prompt>` self-paces (agent decides when to re-tick, runs to a stop condition); `/loop <interval> <prompt>` re-ticks on a fixed interval; `/loop stop` halts deterministically (already-queued ticks are cancelled, not just the next one).
+A `/loop` message drives a session across ticks.
+Commands are dispatched only on the insert-then-start path, so arm a loop with `followup.py -t <thread_id> -p "/loop ..."`; `start.py` alone will not arm one.
+
+- `/loop <interval> <prompt>` -- interval mode, re-ticks on a fixed interval (floor 60s). The working form.
+- `/loop <prompt>` with no interval -- self-paced mode, **refused at dispatch**: it replies `{"loop": "rejected"}` and arms nothing (no loop cleared, no run enqueued).
+  A self-paced tick cannot schedule its own successor while the current run is still active, so it would arm and never fire.
+  Treat the mode as unavailable; always pass an interval.
+- `/loop stop` -- deterministic clear; already-queued ticks are cancelled, not just the next one.
+
+Any other human turn also clears an armed loop. `/compact` does not, and neither does stopping the current agent run.
+From inside a tick the agent can end the loop itself by calling the `stop_loop` tool; that is what makes a "loop until X" instruction terminate instead of running to the 100-tick cap.
 
 **Rule: every loop prompt must be a self-contained directive.** A tick runs unattended -- if its prompt trips the clarify-gate it parks in `asked` and the loop cannot answer itself, so the whole loop stalls. Always include "do not ask, complete autonomously".
 
+**Rule: give the loop its own exit.** Every prompt states a completion condition and instructs the agent to call `stop_loop` when it is met; an interval loop with no exit runs to the cap.
+
 Three patterns:
 
-- **Self-paced drive-to-complete** (best for finishing a large task autonomously): `/loop 自主推进直至完成，全程不要提问：每轮检索新文献、更新综述/图/表，补全上轮空缺；当覆盖全面、引文齐全且前后一致时停止并输出 /workspace 交付物。`
+- **Drive-to-complete** (best for finishing a large task autonomously): `/loop 10m 自主推进直至完成，全程不要提问：每轮检索新文献、更新综述/图/表，补全上轮空缺；当覆盖全面、引文齐全且前后一致时，调用 stop_loop 结束循环并输出 /workspace 交付物。`
 - **Interval monitoring** (ongoing literature surveillance): `/loop 24h 检索过去24小时新论文，不要提问：有则更新并追加到 /workspace/updates.md，无则记录"无更新"。`
-- **Bounded refinement** (fixed number of passes): `/loop 共3轮精炼，不要提问：第1轮补机制、第2轮补定量数据、第3轮校验引文与一致性；每轮存版本。`
+- **Bounded refinement** (fixed number of passes): `/loop 30m 共3轮精炼，不要提问：第1轮补机制、第2轮补定量数据、第3轮校验引文与一致性；每轮存版本；第3轮结束后调用 stop_loop。`
+
+## /compact
+
+`/compact [focus hint]` on the same insert-then-start path compresses a long session into a research-resumption summary.
+It starts no agent run, and it does not clear an armed loop.
+Every summary is also written to the thread's sandbox at `/workspace/compact/<yyyy_mmdd_hhmmss>.md` (the response carries `summary_file`), so it is readable with the ordinary sandbox file commands.
+Archiving is best-effort: if the sandbox is unavailable the compaction still succeeds and `summary_file` comes back null.
 
 ## Result Quality Signals
 
