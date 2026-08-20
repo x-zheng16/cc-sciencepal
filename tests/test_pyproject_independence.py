@@ -40,12 +40,21 @@ EXCLUDED_DIRS = {".venv", "__pycache__", ".pytest_cache", "node_modules", ".work
 IMPORT_TO_DIST: dict[str, str] = {}
 
 
+def _excluded(p: Path) -> bool:
+    """True when p sits under an excluded directory INSIDE the plugin.
+
+    Matched on the path relative to PLUGIN_ROOT rather than on its absolute parts.
+    Absolute matching excludes the entire tree whenever the checkout itself lives
+    under a directory sharing one of these names, which is exactly what happens in
+    a linked worktree at .worktrees/<slug>/: every file then has ".worktrees" among
+    its parts, the scan returns nothing, and only the empty-scan assertion keeps
+    that from reading as a pass.
+    """
+    return any(part in EXCLUDED_DIRS for part in p.relative_to(PLUGIN_ROOT).parts)
+
+
 def _plugin_py_files() -> list[Path]:
-    return [
-        p
-        for p in PLUGIN_ROOT.rglob("*.py")
-        if not any(part in EXCLUDED_DIRS for part in p.parts)
-    ]
+    return [p for p in PLUGIN_ROOT.rglob("*.py") if not _excluded(p)]
 
 
 def _local_module_names() -> set[str]:
@@ -59,7 +68,7 @@ def _local_module_names() -> set[str]:
     """
     names: set[str] = set()
     for p in PLUGIN_ROOT.rglob("*"):
-        if any(part in EXCLUDED_DIRS for part in p.parts):
+        if _excluded(p):
             continue
         if p.is_dir():
             if (p / "__init__.py").exists():
