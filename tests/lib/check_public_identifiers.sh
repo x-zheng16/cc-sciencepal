@@ -3,8 +3,8 @@
 #
 # This repository is public. Its git history is the published artifact, so an internal identifier
 # that reaches a tracked file is published the moment it is pushed, and stays published after the
-# working tree is cleaned. Commit-message tooling does not help here: a message and a diff are
-# different objects, and a clean message says nothing about the bytes it carries.
+# working tree is cleaned. Commit-message tooling does not help: a message and a diff are different
+# objects, and a clean message says nothing about the bytes it carries.
 #
 # Two families are refused.
 #
@@ -16,87 +16,62 @@
 #   watermark  AI-authorship or co-credit markers. Deliverables in this project carry no such
 #              marker, and a commit body cannot be corrected in place once pushed.
 #
-# TWO SCOPES, and the distinction is the point. `worktree` is what a commit would publish next.
-# `HEAD` is what is published already. An earlier draft of this checker took its file LIST from
-# git and its file CONTENT from disk, which meant scrubbing a file made the gate report PASS while
-# the leak sat untouched at the tip. Both scopes are scanned, and a finding in either fails.
+# TWO SCOPES, and the distinction is the point. `worktree` is what a commit would publish next;
+# `HEAD` is what is published already. Scrubbing a file must not turn a published leak into a PASS,
+# so both are scanned and a finding in either fails.
 #
-# WHAT THIS DOES NOT COVER, stated here because the sentence above is easy to over-read. HISTORY is
-# a third scope and is NOT scanned. The contract of a PASS is "the tip is clean", not "this
-# repository does not publish these strings", and the second claim is currently FALSE. Measured
-# 2026-08-20 by scanning every commit reachable from every ref: 14 commits carry
+# WHAT A PASS MEANS. "The tip is clean", not "this repository does not publish these strings".
+# HISTORY is a third scope and is NOT scanned, and the stronger claim is currently FALSE here.
+# Measured 2026-08-20 over every commit reachable from every ref: 14 commits carry
 # ~/cc-omni/cc/plugin/sciencepal, 6 carry ~/cc-plugins/cc-python, 11 carry ~/.claude/cc-python, and
 # 26 carry the scratch-directory name, across CLAUDE.md, CLAUDE.local.md, README.md and
-# skills/sciencepal/SKILL.md. Reproduce with:
+# skills/sciencepal/SKILL.md. Reproduce, one pattern at a time:
 #
-#   for s in 'cc-omni/cc/plugin/sciencepal' 'cc-plugins/cc-python' '\.claude/cc-python' 'cc-scratch'; do
-#       git rev-list --all | xargs -I{} git grep -l -E "$s" {} -- 2>/dev/null | sed 's/:.*//' | sort -u | wc -l
-#   done
+#   git rev-list --all | xargs -I{} git grep -l -E "$pat" {} -- 2>/dev/null | sed 's/:.*//' | sort -u | wc -l
 #
 # Those strings stay fetchable at the commits that introduced them for as long as the repository is
-# public, and removing them needs a history rewrite, which is not this file's decision to make.
-# Widening the contract to the stronger claim means adding the history scope here, not relabelling
-# what these two scopes already prove.
+# public; removing them needs a history rewrite, which is not this file's decision to make. Widening
+# the contract means adding the history scope here, not relabelling what these two scopes prove.
 #
-# Matching is word-boundaried, not substring, and case matters. That distinction is load-bearing.
-# A naive substring scan for the internal token `orch` matches the ordinary English word
-# "orchestrate". Anchoring only the left side against lowercase is not enough either: the pattern
-# `(^|[^a-z])-?orch\b` matches PyTorch, because the capital T satisfies [^a-z]. A privacy gate that
-# blocks on the name of a mainstream framework is a gate people learn to bypass, and the bypass
-# then costs whatever else the gate protects. Anchoring is therefore against letters of either
-# case.
+# ANCHORING. Every boundary is written out as `[^A-Za-z0-9_]`, and the class is exactly that wide
+# for three measured reasons: a letter-only anchor treats the capital T of PyTorch as a boundary, a
+# letter-and-digit anchor still treats the underscore of orch_worker as one, and a boundary that
+# ignores digits lets a short token match inside machine-generated hex, where one lockfile's sha256
+# digests and package URLs supplied four false positives that no reasoning about English words would
+# have predicted. For the same reason the short internal codes are ENUMERATED and never described
+# by shape: a shape pattern for them also matches `names.add(`, `skills add` and `numbers add up`.
 #
-# For the same reason the methodology codes are enumerated rather than described by shape. The
-# first draft generalised them to `\b[0-9]?[a-z]?[a-z]dd\b`, which is the correct shape, and which
-# matched `names.add(` in tests/test_pyproject_independence.py, `skills add` in README.md, and
-# `numbers add up` in skills/sciencepal/SKILL.md: three files, six lines, all of them ordinary
-# prose or code. A pattern loose enough to be future-proof is loose enough to be ignored.
-#
-# The codes are also bounded against DIGITS, not merely letters, which is a separate lesson with
-# its own measurement. Bounded against letters alone, `6dd` matched four lines of uv.lock (111,
-# 127, 129 and 138 at the time of writing): a sha256 digest and three package URLs whose hex
-# happens to contain the sequence. The full first one, since an elided hash cannot be re-checked:
-# https://files.pythonhosted.org/packages/cb/b1/3846dd7f199d53cb17f49cba7e651e9ce294d8497c8c150530ed11865bb8/iniconfig-2.3.0-py3-none-any.whl
-# Machine-generated hex is long, tracked, and matches short lowercase alphanumeric tokens by
-# chance, so any pattern that can appear inside a hash needs the digit boundary.
-#
-# Those two failures are one failure. A letter-class anchor treats an uppercase letter as a
-# boundary, which is the PyTorch case, and a letter-and-digit anchor still treats an underscore as
-# one, which matches `orch_worker`. Every anchor here is therefore `[^A-Za-z0-9_]`, which is what
-# `\b` means, and it is spelled out rather than written as `\b` for a mechanical reason worth
-# knowing before porting this file: `git grep -E` does NOT honour `\b`. It matches nothing and
-# says so with exit 1, which is indistinguishable from a clean scan, so a table written with `\b`
-# would be entirely inert while reporting PASS. `git grep -P` does honour it, but combining the
-# two is order-dependent rather than additive: `-P -E` matched nothing here while `-E -P` worked,
-# so the last flag wins and a table that assumes otherwise silently loses its engine. Verified on
-# git 2.54.0; the neighbouring hazard is recorded as GOTCHA011.
+# It is written out rather than as `\b` for a mechanical reason worth knowing before porting this
+# file: `git grep -E` does NOT honour `\b`. It matches nothing and says so with exit 1, which is
+# indistinguishable from a clean scan, so a table written with `\b` would be entirely inert while
+# reporting PASS. `git grep -P` does honour it, but the two flags are order-dependent rather than
+# additive: the LAST one wins, so `-P -E` matches nothing while `-E -P` works, and a wrapper that
+# appends `-E` for safety silently disables every `\b` in a caller's table. Verified on git 2.54.0;
+# the neighbouring hazard is recorded as GOTCHA011.
 #
 # Scope is `git ls-files` via `git grep`, because tracked-ness is exactly what publishes. Binary
-# files are skipped (-I): random bytes match short patterns readily, and a font file cannot leak
-# vocabulary. Path quoting is git's own problem here rather than this script's, which is the other
-# reason for using `git grep` instead of a shell loop over `git ls-files`.
+# files are skipped (-I): random bytes match short patterns readily, and a font cannot leak
+# vocabulary. Path quoting is then git's problem rather than this script's, which is the other
+# reason to prefer `git grep` over a shell loop over `git ls-files`.
 #
 # THE `private-component` ROW IS A CURATED LIST, and its contract is "the names I knew about when
 # this was written", not "the private components". It cannot be anything else from inside a public
 # repository: enumerating private repository names at run time would write the answer into the very
-# tree being scanned. The failure mode is invisible from here, and it is not hypothetical. A peer
-# running a hand-curated list of the same shape reported a repository CLEAN while missing a private
-# name four lines below one it had caught, because the caught one matched a generic token by
-# accident and the missed one was simply not on the list; a third name minted after the list was
-# written was missed by both of us. So a PASS on this row means "no name on the list appears here",
-# and a private component created since is invisible to it. Adding names is the only maintenance
-# this row has.
+# tree being scanned. The failure mode is invisible from here and is not hypothetical, a peer
+# running a list of the same shape having reported a repository CLEAN while missing a private name
+# four lines below one it caught. Adding names is the only maintenance this row has.
 #
 # Exemptions live in the ALLOW table, keyed by path AND pattern id, each with a written reason.
-# Wildcard ids are not accepted: an exemption that grants every pattern to a file also grants the
-# ones nobody considered. This file and its test exempt themselves for the ids they genuinely
-# trip, because a checker necessarily contains the strings it forbids.
+# Wildcard ids are not accepted: an exemption granting every pattern to a file also grants the ones
+# nobody considered. This file and its test exempt themselves for the ids they genuinely trip,
+# because a checker necessarily contains the strings it forbids. That is also the standing cost of
+# adopting this file: at history scope the checker becomes the largest single contributor to the
+# surface it measures, and its exemption set grows monotonically with its table.
 #
-# Silence is the failure mode of a scanner, so three things are refused outright rather than
-# passed: an empty file list, an empty pattern table, and a regex the matcher rejects. The last
-# one matters most. An earlier draft discarded stderr and treated every non-zero exit as "no
-# match", so a single unbalanced parenthesis disabled its pattern while the summary still counted
-# it as present.
+# Silence is the failure mode of a scanner, so three things are refused outright rather than passed:
+# an empty file list, an empty pattern table, and a regex the matcher rejects. The last matters
+# most. An earlier draft discarded stderr and treated every non-zero exit as "no match", so one
+# unbalanced parenthesis disabled its pattern while the summary still counted it as present.
 #
 # Output: `GATE: FAIL <id> [<family>/<scope>] <path>:<line> <text>` per violation, then a
 # `GATE: SCANNED <n> files, <m> patterns` summary. Exits 1 on any violation or refusal.
