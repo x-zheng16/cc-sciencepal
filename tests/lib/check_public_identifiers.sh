@@ -76,6 +76,17 @@
 # vocabulary. Path quoting is git's own problem here rather than this script's, which is the other
 # reason for using `git grep` instead of a shell loop over `git ls-files`.
 #
+# THE `private-component` ROW IS A CURATED LIST, and its contract is "the names I knew about when
+# this was written", not "the private components". It cannot be anything else from inside a public
+# repository: enumerating private repository names at run time would write the answer into the very
+# tree being scanned. The failure mode is invisible from here, and it is not hypothetical. A peer
+# running a hand-curated list of the same shape reported a repository CLEAN while missing a private
+# name four lines below one it had caught, because the caught one matched a generic token by
+# accident and the missed one was simply not on the list; a third name minted after the list was
+# written was missed by both of us. So a PASS on this row means "no name on the list appears here",
+# and a private component created since is invisible to it. Adding names is the only maintenance
+# this row has.
+#
 # Exemptions live in the ALLOW table, keyed by path AND pattern id, each with a written reason.
 # Wildcard ids are not accepted: an exemption that grants every pattern to a file also grants the
 # ones nobody considered. This file and its test exempt themselves for the ids they genuinely
