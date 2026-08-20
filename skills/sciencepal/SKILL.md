@@ -1,6 +1,6 @@
 ---
 name: sciencepal
-version: 0.6.0
+version: 0.7.0
 description: "Run and manage SciencePal science-research agent sessions across stg + prd: start tasks, list/status/stop sessions, browse/upload/download sandbox files (biology, materials, protein, plasma, patents). Use for SciencePal tasks, managing your sessions across environments, checking agent runs, or sandbox files. NOT for general web or paper search."
 ---
 
