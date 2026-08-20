@@ -33,9 +33,14 @@ async def main() -> None:
     rows = data.get("statuses", []) if isinstance(data, dict) else (data or [])
     print(f"[{args.env}] {len(rows)} session(s):")
     for s in rows:
-        # `status` is sometimes present with a JSON null rather than absent, so the
-        # dict default alone does not cover it and the row would print "None".
-        status = s.get("status") or "-"
+        # Three distinct states, kept distinct. The key is usually present with a
+        # string; it is sometimes present with a JSON null, which the dict default
+        # does not cover and which used to print as "None"; and it could be absent
+        # entirely, which is a different fault and should not be disguised as null.
+        if "status" not in s:
+            status = "?"
+        else:
+            status = s["status"] if s["status"] is not None else "-"
         print(f"  {s.get('project_id', '?')}  {status}")
 
 

@@ -21,6 +21,11 @@ DEFAULTS = {
     "prd": "https://sciencepal.ai/api",
 }
 
+# Establishing a TCP+TLS connection is fast or it is broken; no endpoint here is slow to
+# CONNECT. Keeping this fixed while the read budget varies is what lets a caller tell
+# "the server is still working" from "the server was never reached".
+CONNECT_TIMEOUT = 10.0
+
 
 def _load_dotenv() -> None:
     """Merge ~/.claude/.env into os.environ (does not override the live env,
@@ -64,9 +69,16 @@ def make_client(env: str, timeout: float = 60.0) -> httpx.AsyncClient:
     Tokens are short-lived (manual-refresh model): on 401 the client exits with a clear
     'refresh your token' hint rather than a raw httpx error.
 
-    `timeout` is per-request and defaults to 60s, which suits every read endpoint.
-    /agent/initiate provisions a sandbox before it answers and routinely exceeds that,
-    so start.py raises it; see the note there about why a timeout is not a failure.
+    `timeout` sets the read, write and pool budgets and defaults to 60s, which suits
+    every read endpoint. /agent/initiate provisions a sandbox before it answers and
+    routinely exceeds that, so start.py raises it; see the note there about why a
+    timeout is not a failure.
+
+    CONNECT is deliberately NOT raised with it, and stays at 10s. Raising all four
+    legs together means an unreachable host blocks for the whole budget, and worse,
+    it makes a connect failure indistinguishable in duration from a slow success,
+    which is exactly the distinction start.py needs in order to tell the caller
+    whether a retry is safe.
     """
     token, base_url = resolve(env)
     web = base_url.rsplit("/api", 1)[0]
@@ -84,7 +96,7 @@ def make_client(env: str, timeout: float = 60.0) -> httpx.AsyncClient:
     return httpx.AsyncClient(
         base_url=base_url,
         headers={"Authorization": f"Bearer {token}"},
-        timeout=timeout,
+        timeout=httpx.Timeout(timeout, connect=CONNECT_TIMEOUT),
         trust_env=False,
         event_hooks={"response": [_on_response]},
     )

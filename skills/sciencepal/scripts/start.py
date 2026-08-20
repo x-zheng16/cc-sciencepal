@@ -14,6 +14,14 @@ Two changes follow from that. The initiate timeout is raised well above the shar
 default, and a timeout that still happens exits with an explicit warning that the
 run is probably live and must be located rather than re-requested, because a retry
 starts a second run.
+
+The two cases are kept apart, because the advice inverts between them. If the request
+was sent, the outcome is unknowable and the caller must NOT retry (exit 2). If it
+never left this process, nothing started and a retry is safe (exit 3). Catching
+httpx.TimeoutException as one thing would tell someone whose network is down to go
+hunting for a session that was never created; the partition here is by whether a
+connection was established, not by whether the failure was a timeout, because a
+server that hangs up without answering is as ambiguous as one that answers late.
 """
 
 from __future__ import annotations
@@ -59,10 +67,25 @@ async def main() -> None:
     async with make_client(args.env, timeout=args.timeout) as c:
         try:
             r = await c.post("/agent/initiate", data=data)
-        except httpx.TimeoutException:
+        except (httpx.ConnectTimeout, httpx.ConnectError, httpx.PoolTimeout) as exc:
+            # The request never left this process, so nothing started server-side and a
+            # retry is safe. Saying otherwise would send the caller hunting sessions.py
+            # for a session that does not exist, which is the opposite of the fix.
             print(
-                f"Timed out after {args.timeout:g}s waiting for /agent/initiate on "
-                f"{args.env}.\n"
+                f"Could not reach the {args.env} API: {type(exc).__name__}.\n"
+                f"The request never left this machine, so no run was started and it is "
+                f"safe to retry once connectivity is back.",
+                file=sys.stderr,
+            )
+            raise SystemExit(3)
+        except httpx.TransportError:
+            # Everything else that can go wrong at the transport layer once the
+            # connection exists: read and write timeouts, and a server that hangs up
+            # without answering. In all of them the request was sent and whether the
+            # server acted on it is unknowable here. It usually did.
+            print(
+                f"No usable response from /agent/initiate on {args.env} "
+                f"(waited up to {args.timeout:g}s).\n"
                 f"The run has most likely STARTED anyway: this endpoint provisions a "
                 f"sandbox before it answers, and the server keeps going after the "
                 f"client gives up.\n"

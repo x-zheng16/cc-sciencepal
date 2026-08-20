@@ -47,8 +47,9 @@ then call this to run the agent over the updated thread.
 
 **Format: JSON.** Body is an empty object `{}`; no fields are sent.
 
-Response: JSON object, passed through verbatim. No individual field is read, so treat the shape as
-unpinned here; `/agent-run/{agent_run_id}` remains the way to poll the resulting run.
+Response: a JSON object, passed through verbatim. No individual field is read, but the caller does
+assign into it, so an object is required while its fields are not;
+`/agent-run/{agent_run_id}` remains the way to poll the resulting run.
 
 ### GET `/agent-run/{agent_run_id}/stream` -- SSE event stream
 

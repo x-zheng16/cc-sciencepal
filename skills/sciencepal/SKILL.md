@@ -43,6 +43,8 @@ User needs them for status checks and downloads.
 
 **A timeout here is not a failure.** `/agent/initiate` provisions a sandbox before it answers, so it is far slower than every other endpoint; the wait defaults to 300s for this call alone, against 60s everywhere else. If it still times out, the run has almost certainly started anyway and the server keeps going after the client gives up. Do NOT re-run the command, which starts a SECOND run: find the new session with `sessions.py` instead, as the newest entry in status `initializing` or `running`. Measured 2026-08-20 on both environments: three calls that timed out at the old shared 60s each still created a session (stg 153 to 155 over two calls, prd 118 to 119 over one), and the same prompt succeeded on the first try once the wait was raised.
 
+Read the exit code, do not guess from the message. **Exit 2** = request sent, no usable response, so a run probably exists and you must go find it. **Exit 3** = the API was never reached, so nothing started and retrying is safe. Connect is capped at 10s regardless of `--timeout`, so exit 3 arrives quickly.
+
 ### followup.py -- Continue an existing session
 
 ```bash

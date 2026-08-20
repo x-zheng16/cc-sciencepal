@@ -85,7 +85,9 @@ python3 start.py -p "..." --select manual --agent-id <agent_id>
 
 Prints the JSON response, which carries the `thread_id` and the `agent_run_id`. Keep both: status checks and stops take the run ID, follow-ups and downloads take the thread ID. Web search is on unless you pass `--no-web-search`, and agent selection is automatic unless you pass `--select manual` with `--agent-id`.
 
-Starting a run provisions a sandbox before the server responds, so this is by far the slowest call in the plugin. It waits up to 300 seconds, raise it with `--timeout` if you need to. If it does time out, the run has almost certainly started anyway, because the server carries on after the client gives up. Do not re-run the command, which would start a second run; find the new session with `sessions.py`, where it is the newest entry.
+Starting a run provisions a sandbox before the server responds, so this is by far the slowest call in the plugin. It waits up to 300 seconds, raise it with `--timeout` if you need to.
+
+The failure exits are distinct on purpose, because the right action inverts between them. **Exit 2** means the request was sent and no usable response came back: the run has almost certainly started anyway, since the server carries on after the client gives up. Do not re-run the command, which would start a second run; find the new session with `sessions.py`, where it is the newest entry. **Exit 3** means the API could not be reached at all, so nothing was started and retrying is safe.
 
 By default a fresh task does not run straight through to completion. The agent asks one round of clarifying questions and parks awaiting your answer. Reply with `followup.py`, or pre-empt the gate by writing a fully specified prompt that states every parameter and explicitly instructs the agent not to ask.
 
@@ -129,7 +131,7 @@ python3 stop.py <agent_run_id> --env prd
 `sandbox.py` takes `--env` before the subcommand, since the flag belongs to the top-level parser:
 
 ```bash
-python3 sandbox.py --env prd download <thread_id> -o ./sciencepal-out/
+python3 sandbox.py --env prd download <thread_id> -o ~/sciencepal-out/<thread_id>/
 python3 sandbox.py ls <sandbox_id> /workspace
 python3 sandbox.py cat <sandbox_id> /workspace/report.md
 python3 sandbox.py upload <sandbox_id> ./local.pdb /workspace/input.pdb
@@ -155,6 +157,16 @@ python3 followup.py -t <thread_id> -p "/loop 30m Keep working autonomously and n
 `/compact [focus hint]` compresses a long session into a resumption summary. It starts no agent run and does not clear an armed loop. Each summary is also archived to the thread's sandbox under `/workspace/compact/`, and the response reports the path, so it can be read back with the ordinary sandbox file commands.
 
 The skill documentation in `skills/sciencepal/SKILL.md` carries the full guidance, including loop prompt patterns, per-domain prompt engineering advice, result quality signals, and the API reference.
+
+## Tests
+
+```bash
+bats tests/                                                  # shell-level guards
+uv run --no-project --with pytest python3 -m pytest tests/   # import hygiene
+bash tests/lib/check_public_identifiers.sh                   # publishable-content gate
+```
+
+The third one is worth knowing about before you send a patch. This repository is public, and the gate refuses tracked content that would publish absolute home paths, private component names, or AI-authorship markers. It scans both the working tree and the committed tree, since a file scrubbed on disk is still published in history. It is also run by `bats tests/`.
 
 ## License
 
