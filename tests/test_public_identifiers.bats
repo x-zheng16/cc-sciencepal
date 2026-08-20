@@ -126,7 +126,7 @@ consult the ccmd for this	config-file
 fixed in cc-research-utils	private-component
 routed via cc-plugin-swarm	private-component
 the orch decides	swarm-term
-ask a peer named cc-thing-rev	swarm-term
+ask a peer named cc-thing-rev	rev-role-tag
 built with 6dd throughout	method-code
 Co-authored-by: someone	watermark-credit
 this is AI-generated text	watermark-label
@@ -144,6 +144,24 @@ ARMS
         printf '%s\n' "$text" | grep -qE $icase -e "$regex" \
             || { echo "arm not covered: '$text' should hit $id but does not"; return 1; }
     done <"$fixture"
+}
+
+@test "a web-components slot element is not a workspace slot" {
+    # Bare `slots?` gave 17 hits on a peer's static-site repo and was right zero times: `<slot>`
+    # is a standard web-components element, `include.slot` and `slot="..."` are template
+    # parameters in authored includes, and `$fa-var-check-to-slot` is an icon name. The pattern
+    # now requires a companion word, which keeps the workspace placeholder and drops all of that.
+    repo=$(write_repo "$BATS_TEST_TMPDIR/webslot" '<slot name="x"></slot> include.slot and $fa-var-check-to-slot')
+    run "$CHECKER" "$repo"
+    echo "$output"
+    [ "$status" -eq 0 ]
+
+    # The positive half on the same predicate, so the case above cannot pass by inertness.
+    repo2=$(write_repo "$BATS_TEST_TMPDIR/wsslot" 'write it under your slot root, not the repo')
+    run "$CHECKER" "$repo2"
+    echo "$output"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"GATE: FAIL slot-token"* ]]
 }
 
 @test "a CSS hex colour is not a methodology code" {
