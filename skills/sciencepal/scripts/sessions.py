@@ -33,7 +33,10 @@ async def main() -> None:
     rows = data.get("statuses", []) if isinstance(data, dict) else (data or [])
     print(f"[{args.env}] {len(rows)} session(s):")
     for s in rows:
-        print(f"  {s.get('project_id', '?')}  {s.get('status', '?')}")
+        # `status` is sometimes present with a JSON null rather than absent, so the
+        # dict default alone does not cover it and the row would print "None".
+        status = s.get("status") or "-"
+        print(f"  {s.get('project_id', '?')}  {status}")
 
 
 if __name__ == "__main__":
