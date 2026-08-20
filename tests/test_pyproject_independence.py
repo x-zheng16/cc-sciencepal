@@ -6,20 +6,23 @@ re-introduces a transitive dep on the retired shared env.
 
 SCOPE: every .py under PLUGIN_ROOT minus EXCLUDED_DIRS.
 
-LOCAL DISCOVERY: cc-sciencepal currently ships zero plugin-local Python
-modules -- the 3 scripts in skills/sciencepal/scripts/ are standalone and
-import only stdlib + httpx. The `_local_module_names` framework still applies
-(returns the empty set today; future-proof against adding sibling helpers).
+LOCAL DISCOVERY: cc-sciencepal ships zero plugin-local Python packages. The
+scripts in skills/sciencepal/scripts/ are standalone and import only stdlib
+plus httpx, with `_spclient.py` shared between them by sys.path insertion
+rather than by package import. The `_local_module_names` framework still
+applies (it returns the empty set today, and is forward defense against
+adding sibling helpers).
 
-Pilot precedent: cc-research-utils 2c1b213. Differences vs pilot:
-- IMPORT_TO_DIST starts empty (httpx import name == dist name).
-- `test_local_discovery_finds_known_internal_modules` is omitted -- no
-  internal package to assert discovery for; the no-shadow guard still
-  serves as forward defense.
-- All dependency-groups iterated (per Stage 4 dispatch spec) rather than
-  only `dev`, future-proofing for additional PEP 735 groups.
-- [build-system] hatchling-editable omitted from pyproject.toml -- scripts
-  do not use cwd-rooted package imports, so the build backend is unneeded.
+Deliberate shape choices:
+- IMPORT_TO_DIST starts empty (the httpx import name equals its dist name).
+- A "local discovery finds a known internal module" case is omitted, since
+  there is no internal package to assert discovery for; the no-shadow guard
+  still serves as forward defense.
+- All dependency-groups are iterated rather than only `dev`, future-proofing
+  for additional PEP 735 groups.
+- [build-system] hatchling-editable is omitted from pyproject.toml, because
+  the scripts do not use cwd-rooted package imports and the build backend is
+  therefore unneeded.
 """
 from __future__ import annotations
 
