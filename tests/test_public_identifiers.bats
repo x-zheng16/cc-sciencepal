@@ -7,10 +7,9 @@ setup() {
     CHECKER="$PLUGIN_ROOT/tests/lib/check_public_identifiers.sh"
 }
 
-# Fixture builder: a throwaway git repo containing one tracked file whose single line is
-# caller-chosen. The checker's scope is `git ls-files`, so a fixture has to be a real repo with a
-# real commit; a bare directory of files would be scanned as empty and would pass for the wrong
-# reason. The two fixtures below differ only in that line, which is the property under test.
+# Fixture builder: a throwaway git repo with one tracked, COMMITTED file. The checker scans both
+# the working tree and HEAD, so a fixture has to be a real repo with a real commit; a bare
+# directory of files would be scanned as empty and would pass for the wrong reason.
 write_repo() {
     local dir="$1" content="$2"
     mkdir -p "$dir"
@@ -22,11 +21,10 @@ write_repo() {
 }
 
 @test "no tracked file in this repo publishes internal-workspace vocabulary" {
-    # This repo is PUBLIC, and the commit-time privacy hook reads commit messages and
-    # pull-request bodies only, never the body of the files in the diff. Regression guard for the
-    # 2026-08-20 sweep, which found ten violations across three tracked files: the download
-    # destination written as an internal scratch path in three places in SKILL.md, and internal
-    # component names paired with internal commit SHAs in two test files.
+    # This repo is public, and a commit message says nothing about the bytes in its diff.
+    # Regression guard for the 2026-08-20 sweep, which found ten violations across three tracked
+    # files: the download destination written as an internal scratch path in three places in
+    # SKILL.md, and private component names paired with internal commit SHAs in two test files.
     run "$CHECKER" "$PLUGIN_ROOT"
     echo "$output"
     [ "$status" -eq 0 ]
@@ -46,12 +44,24 @@ write_repo() {
     files=${scanned% *}
     patterns=${scanned#* }
     [ "$files" -ge 15 ]
-    [ "$patterns" -ge 10 ]
+    [ "$patterns" -ge 11 ]
+}
+
+@test "a leak that is committed but scrubbed from the worktree still fails" {
+    # The defect this checker shipped with on its first draft: it took the file LIST from git and
+    # the file CONTENT from disk. Scrubbing the working copy made it report PASS while the leak
+    # sat untouched in the committed history, which is the exact thing the repo publishes.
+    repo=$(write_repo "$BATS_TEST_TMPDIR/scrubbed" 'Download results to ~/os/cc/plugin/secret/out/.')
+    printf 'Download results to <output-dir>/out/.\n' >"$repo/doc.md"
+
+    run "$CHECKER" "$repo"
+    echo "$output"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"[internal/HEAD]"* ]]
+    [[ "$output" != *"[internal/worktree]"* ]]
 }
 
 @test "checker rejects an internal path in a tracked file (positive control)" {
-    # The negative half of the boundary pair. Without this, a checker whose regex never matched
-    # anything would pass the test above for the wrong reason.
     repo=$(write_repo "$BATS_TEST_TMPDIR/leak" 'Download results to ~/os/cc/plugin/cc-sciencepal/out/.')
     run "$CHECKER" "$repo"
     echo "$output"
@@ -59,9 +69,18 @@ write_repo() {
     [[ "$output" == *"GATE: FAIL home-path"* ]]
 }
 
-@test "checker rejects an AI-authorship watermark in a tracked file" {
-    repo=$(write_repo "$BATS_TEST_TMPDIR/mark" 'Co-Authored-By: some agent <noreply@example.invalid>')
+@test "checker rejects the canonical AI-authorship watermark, with and without the emoji" {
+    # The first pattern table missed the canonical form twice over: it anchored on a lowercase
+    # "generated with Claude" with no bracket, and it named the retired claude.ai/code URL. Strip
+    # the emoji, which a reformatter or a paste routinely does, and the marker published clean.
+    repo=$(write_repo "$BATS_TEST_TMPDIR/mark" 'Generated with [Claude Code](https://claude.com/claude-code)')
     run "$CHECKER" "$repo"
+    echo "$output"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"GATE: FAIL watermark-credit"* ]]
+
+    repo2=$(write_repo "$BATS_TEST_TMPDIR/mark2" 'Co-authored-by: Some Agent <agent@example.invalid>')
+    run "$CHECKER" "$repo2"
     echo "$output"
     [ "$status" -eq 1 ]
     [[ "$output" == *"GATE: FAIL watermark-credit"* ]]
@@ -77,14 +96,31 @@ write_repo() {
     [[ "$output" == *"GATE: PASS"* ]]
 }
 
-@test "checker does not flag an English word that merely contains an internal token" {
-    # The measured false positive that shaped the pattern table: a substring scan for the internal
-    # token `orch` also matches "orchestrate", which SKILL.md uses legitimately, and a shape-based
-    # methodology-code pattern matched `names.add(`, `skills add`, and `numbers add up`.
-    repo=$(write_repo "$BATS_TEST_TMPDIR/fp" 'Do not orchestrate sub-steps; names.add(x) and the numbers add up.')
+@test "checker does not flag ordinary words, framework names, or hex digests" {
+    # Three measured false positives, each of which killed a plausible pattern:
+    #   orchestrate   a substring scan for the internal token `orch`
+    #   PyTorch       left-anchoring against lowercase only, since capital T satisfies [^a-z]
+    #   names.add     describing the methodology codes by shape instead of enumerating them
+    #   3846dd7f      bounding those codes against letters but not digits, so `6dd` hit hashes
+    repo=$(write_repo "$BATS_TEST_TMPDIR/fp" 'Do not orchestrate: PyTorch, names.add(x), numbers add up, sha256:3846dd7f199d.')
     run "$CHECKER" "$repo"
     echo "$output"
     [ "$status" -eq 0 ]
+}
+
+@test "checker refuses a pattern its matcher cannot compile" {
+    # An earlier draft discarded stderr and read every non-zero grep exit as "no match", so one
+    # unbalanced parenthesis disabled a pattern while the summary still counted it as present.
+    # Silence is a scanner's failure mode, so an uncompilable pattern must stop the gate.
+    cp "$CHECKER" "$BATS_TEST_TMPDIR/broken.sh"
+    sed -i.bak 's|"scratch-dir	internal	cc-scratch"|"scratch-dir	internal	cc-scratch(unbalanced"|' "$BATS_TEST_TMPDIR/broken.sh"
+    grep -q 'unbalanced' "$BATS_TEST_TMPDIR/broken.sh"
+
+    repo=$(write_repo "$BATS_TEST_TMPDIR/regex" 'nothing to see here')
+    run bash "$BATS_TEST_TMPDIR/broken.sh" "$repo"
+    echo "$output"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"not a valid ERE"* ]]
 }
 
 @test "checker fails when the tracked-file list is empty (empty scan is not consent)" {
@@ -95,6 +131,45 @@ write_repo() {
     echo "$output"
     [ "$status" -eq 1 ]
     [[ "$output" == *"empty scan is not consent"* ]]
+}
+
+@test "checker parses under the macOS system bash" {
+    # /bin/bash on macOS is 3.2.57. The first draft held its pattern and ALLOW tables in
+    # heredocs inside command substitution, where an apostrophe in a reason string tripped a 3.2
+    # quoting bug and the script failed to parse at all. It failed closed, but a gate that cannot
+    # run on the stock interpreter is a gate that does not run in CI either.
+    run /bin/bash -n "$CHECKER"
+    echo "$output"
+    [ "$status" -eq 0 ]
+}
+
+@test "every ALLOW row names a file that exists and a pattern that really fires in it" {
+    # An exemption whose path was deleted, or whose pattern no longer matches there, outlives its
+    # reason and quietly widens the next one. There is no wildcard id by design: a row that grants
+    # every pattern to a file also grants the ones nobody considered, which is how the first
+    # draft handed this very test file seven ids it did not use.
+    rows=$(awk '/^ALLOW=\(/{f=1;next} f&&/^\)/{f=0} f' "$CHECKER" | sed 's/^ *"//; s/"$//')
+    [ -n "$rows" ]
+
+    checked=0
+    while IFS=$'\t' read -r path id _reason; do
+        [ -n "$path" ] || continue
+        [ -f "$PLUGIN_ROOT/$path" ] || { echo "ALLOW row names a missing file: $path"; return 1; }
+
+        regex=$(awk -v want="$id" '/^PATTERNS=\(/{f=1;next} f&&/^\)/{f=0}
+                                   f{ sub(/^ *"/,""); sub(/"$/,"");
+                                      n=split($0, p, "\t"); if (p[1]==want) { print p[3] } }' "$CHECKER")
+        [ -n "$regex" ] || { echo "ALLOW row names an unknown pattern id: $id"; return 1; }
+
+        icase=""
+        case "$id" in watermark-*) icase="-i" ;; esac
+        grep -qE $icase -e "$regex" "$PLUGIN_ROOT/$path" \
+            || { echo "ALLOW row is stale: pattern '$id' no longer fires in $path"; return 1; }
+        checked=$((checked + 1))
+    done <<<"$rows"
+
+    # An exemption table that parsed to nothing would pass every assertion above.
+    [ "$checked" -ge 10 ]
 }
 
 @test "CLAUDE.local.md is not tracked" {
