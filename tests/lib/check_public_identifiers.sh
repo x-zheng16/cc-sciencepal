@@ -43,6 +43,17 @@
 # alphanumeric tokens by chance, so any pattern that can appear inside a hash needs the digit
 # boundary.
 #
+# Those two failures are one failure. A letter-class anchor treats an uppercase letter as a
+# boundary, which is the PyTorch case, and a letter-and-digit anchor still treats an underscore as
+# one, which matches `orch_worker`. Every anchor here is therefore `[^A-Za-z0-9_]`, which is what
+# `\b` means, and it is spelled out rather than written as `\b` for a mechanical reason worth
+# knowing before porting this file: `git grep -E` does NOT honour `\b`. It matches nothing and
+# says so with exit 1, which is indistinguishable from a clean scan, so a table written with `\b`
+# would be entirely inert while reporting PASS. `git grep -P` does honour it, but combining the
+# two is order-dependent rather than additive: `-P -E` matched nothing here while `-E -P` worked,
+# so the last flag wins and a table that assumes otherwise silently loses its engine. Verified on
+# git 2.54.0; the neighbouring hazard is recorded as GOTCHA011.
+#
 # Scope is `git ls-files` via `git grep`, because tracked-ness is exactly what publishes. Binary
 # files are skipped (-I): random bytes match short patterns readily, and a font file cannot leak
 # vocabulary. Path quoting is git's own problem here rather than this script's, which is the other
@@ -81,11 +92,11 @@ PATTERNS=(
     "users-path	internal	/Users/[a-z]"
     "claude-dir	internal	~/\.claude/(docs|skills|commands|scripts|hooks)/"
     "scratch-dir	internal	cc-scratch"
-    "slot-token	internal	<your-slot>|(^|[^A-Za-z_-])slots?([^A-Za-z_-]|$)"
-    "config-file	internal	(^|[^A-Za-z])(ccmd|clmd)([^A-Za-z]|$)"
-    "private-component	internal	cc-research-utils|cc-python|(^|[^A-Za-z])cc-plugin-[a-z-]+"
-    "swarm-term	internal	(^|[^A-Za-z])(swarm|orch)([^A-Za-z]|$)|[a-z]-(orch|rev)([^A-Za-z]|$)"
-    "method-code	internal	(^|[^A-Za-z0-9])(6dd|sdd|tdd|ddd|etdd|sadd|cadd)([^A-Za-z0-9]|$)"
+    "slot-token	internal	<your-slot>|(^|[^A-Za-z0-9_-])slots?([^A-Za-z0-9_-]|$)"
+    "config-file	internal	(^|[^A-Za-z0-9_])(ccmd|clmd)([^A-Za-z0-9_]|$)"
+    "private-component	internal	cc-research-utils|cc-python|(^|[^A-Za-z0-9_])cc-plugin-[a-z-]+"
+    "swarm-term	internal	(^|[^A-Za-z0-9_])(swarm|orch)([^A-Za-z0-9_]|$)|[a-z]-(orch|rev)([^A-Za-z0-9_]|$)"
+    "method-code	internal	(^|[^A-Za-z0-9_])(6dd|sdd|tdd|ddd|etdd|sadd|cadd)([^A-Za-z0-9_]|$)"
     "watermark-credit	watermark	co-authored-by|noreply@anthropic|claude\.(ai/code|com/claude-code)|generated (with|by) \[?claude"
     "watermark-label	watermark	ai-generated|本内容由AI生成|🤖"
 )

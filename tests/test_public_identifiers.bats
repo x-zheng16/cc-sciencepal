@@ -102,10 +102,31 @@ write_repo() {
     #   PyTorch       left-anchoring against lowercase only, since capital T satisfies [^a-z]
     #   names.add     describing the methodology codes by shape instead of enumerating them
     #   3846dd7f      bounding those codes against letters but not digits, so `6dd` hit hashes
-    repo=$(write_repo "$BATS_TEST_TMPDIR/fp" 'Do not orchestrate: PyTorch, names.add(x), numbers add up, sha256:3846dd7f199d.')
+    repo=$(write_repo "$BATS_TEST_TMPDIR/fp" 'Do not orchestrate: PyTorch, names.add(x), numbers add up, sha256:3846dd7f199d, orch_worker.')
     run "$CHECKER" "$repo"
     echo "$output"
     [ "$status" -eq 0 ]
+}
+
+@test "the anchors are live under the matcher the checker actually uses" {
+    # `git grep -E` does not honour \b: it matches nothing and exits 1, which is exactly what a
+    # clean scan looks like. A pattern table written with \b would therefore be entirely inert
+    # while the gate reported PASS. This asserts the property directly rather than trusting that
+    # no future edit reaches for the shorter spelling.
+    repo=$(write_repo "$BATS_TEST_TMPDIR/anchor" 'the orch decides')
+
+    run git -C "$repo" grep -n -E -e '\borch\b' -- doc.md
+    [ "$status" -eq 1 ]
+
+    run git -C "$repo" grep -n -E -e '(^|[^A-Za-z0-9_])orch([^A-Za-z0-9_]|$)' -- doc.md
+    [ "$status" -eq 0 ]
+
+    # Scoped to the pattern table, not the file: the header discusses \b by name, which is the
+    # point of the header.
+    table=$(awk '/^PATTERNS=\(/{f=1;next} f&&/^\)/{f=0} f' "$CHECKER")
+    [ -n "$table" ]
+    run grep -c '\\b' <<<"$table"
+    [ "$output" = "0" ]
 }
 
 @test "checker refuses a pattern its matcher cannot compile" {
