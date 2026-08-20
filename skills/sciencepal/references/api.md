@@ -28,9 +28,16 @@ exceeds a 60s client timeout while succeeding server-side. A client timeout is N
 session exists and the run is live, but the caller never received the two IDs. Recover by listing
 sessions, never by retrying, since a retry starts a second run.
 
-There is no request-deduplication key. Measured 2026-08-20 on staging: two calls carrying an
-identical `idempotency_key` form field, each timing out client-side, took the account from 156 to
-157 to 158 sessions. The field is accepted and ignored, so sending one does not make a retry safe.
+There is no request-deduplication key, by design rather than by omission. The multipart body
+schema carries 17 fields and none of them is a key of any kind. Measured 2026-08-20 on staging:
+two calls carrying an identical `idempotency_key` form field, each timing out client-side, took
+the account from 156 to 157 to 158 sessions. Unbound form fields are simply dropped, so sending
+one does not make a retry safe.
+
+The slowness has a specific cause worth knowing, because it bounds how long a sane client waits:
+the handler creates the sandbox INLINE and only then returns the two IDs, and that step is
+budgeted at 10 to 60 seconds. Each call also inserts a fresh project, thread and agent-run row
+before it, which is why a retry produces a second run rather than rejoining the first.
 
 ### GET `/agent-run/{agent_run_id}` -- Check run status
 
@@ -46,6 +53,15 @@ Second leg of the follow-up flow: insert the user message first (see `## Follow-
 then call this to run the agent over the updated thread.
 
 **Format: JSON.** Body is an empty object `{}`; no fields are sent.
+
+**There is no way to name WHICH message you mean, and the ordering requirement follows from that.**
+Command dispatch resolves the target by taking the newest human `type=user` row on the thread, with
+a lookback of 5 and rows carrying an `rsi_nudge` marker skipped. So the insert must land before the
+start, and a second insert racing between the two would be picked instead. Do not send a
+`message_id` or an `idempotency_key`: the request schema declares 10 fields and neither is among
+them, and unknown JSON keys are dropped silently, so a body carrying them looks exactly like
+success while the values never reach the handler. Fields of those names existed on an earlier
+unmerged branch and were dropped by the change that actually shipped.
 
 Response: a JSON object, passed through verbatim. No individual field is read, but the caller does
 assign into it, so an object is required while its fields are not;
@@ -86,10 +102,15 @@ returned for one account with no `since` filter, predicate = each row's `status`
 | `failed`       | 1           | 1           |
 | `null`         | 1           | 6           |
 
-`null` is a value the endpoint really returns, not a missing key; what it denotes is not
-determinable from the client, so do not treat it as an error. Note that `initializing` appeared only
-in the staging sample, which is a sampling artifact rather than an environment difference: it is a
-transient state, and the counts above are one instant each.
+`null` is a value the endpoint really returns, not a missing key, and it means **the project has no
+`agent_runs` row to report**. The cache refresh writes `CASE WHEN v_has_run THEN
+v_latest_run.status ELSE NULL END`, and the schema declares it `anyOf: [string, null]`. It is not
+an error and it is not an alias of any run status: `asked`, `initializing`, `completed`, `stopped`
+and `failed` are all real run statuses. Render it distinctly from an ABSENT key, which would be a
+malformed row rather than a project without runs.
+
+Note that `initializing` appeared only in the staging sample, which is a sampling artifact rather
+than an environment difference: it is a transient state, and the counts above are one instant each.
 
 A bare top-level array is tolerated as a fallback shape, but the object form above is what the
 server sends.

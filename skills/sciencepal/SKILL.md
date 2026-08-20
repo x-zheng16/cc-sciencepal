@@ -53,7 +53,11 @@ python3 followup.py -t <thread_id> -p "..." --no-start            # queue messag
 # -> {agent_run_id, status, thread_id}
 ```
 
-THE way to answer an agent's clarifying questions (the brainstorming gate holds one-shot runs until answered) or steer/continue a finished session. Two-step wire protocol mirroring the web frontend: PostgREST message insert (needs `SCIENCEPAL_{STG,PRD}_SUPABASE_ANON_KEY` in `~/.zshenv.local`; RLS limits inserts to threads the token's user owns) then `POST /thread/{id}/agent/start`. Note: the backend API tolerates expired JWTs but Supabase does not — a 401 here with a "working" token means the token is time-expired; refresh it.
+THE way to answer an agent's clarifying questions (the brainstorming gate holds one-shot runs until answered) or steer/continue a finished session. Two-step wire protocol mirroring the web frontend: PostgREST message insert (needs `SCIENCEPAL_{STG,PRD}_SUPABASE_ANON_KEY` in `~/.zshenv.local`; RLS limits inserts to threads the token's user owns) then `POST /thread/{id}/agent/start`.
+
+**The two legs are ordered, and there is no way to name which message you mean.** The backend resolves the target as the newest human `type=user` row on the thread (lookback 5, skipping rows marked `rsi_nudge`), so the insert must land first and a racing second insert would win. Sending a `message_id` or `idempotency_key` does nothing: the start schema has 10 fields, neither is among them, and unknown JSON keys are dropped silently, so the call looks like success while the values are discarded.
+
+Note: the backend API decodes the JWT without verifying its signature and reaches Postgres with a service role, so it tolerates an EXPIRED token while Supabase does not. A 401 on the insert leg from a token the rest of the plugin is happily using means exactly that; refresh it, and refresh both environments, since they expire independently.
 
 ### status.py -- Check or wait for status
 
