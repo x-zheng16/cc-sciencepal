@@ -92,6 +92,21 @@ def test_rejects_a_missing_or_blank_message_id(value: str) -> None:
         _parse_inserted_message_id(_response(body), THREAD)
 
 
+def test_no_start_returns_before_any_backend_client_is_opened() -> None:
+    """`--no-start` must queue the row and stop, never touching the API.
+
+    Salvaged from the retired correlation branch, which is where this property
+    was first pinned. Anchored on source order rather than on a mocked call,
+    because the insert opens its own client and the start leg is the only other
+    thing in `main` that opens one.
+    """
+    source = (SCRIPTS / "followup.py").read_text()
+    body = source.split("async def main()", 1)[1]
+    no_start_branch = body.split("if args.no_start:", 1)[1]
+    before_client = no_start_branch.split("make_client(", 1)[0]
+    assert "return" in before_client
+
+
 def test_the_returned_id_is_not_sent_to_the_start_endpoint() -> None:
     """The id is diagnostic. Pin that the client never tries to correlate with it.
 
