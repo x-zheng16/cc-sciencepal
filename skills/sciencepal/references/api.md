@@ -28,6 +28,10 @@ exceeds a 60s client timeout while succeeding server-side. A client timeout is N
 session exists and the run is live, but the caller never received the two IDs. Recover by listing
 sessions, never by retrying, since a retry starts a second run.
 
+There is no request-deduplication key. Measured 2026-08-20 on staging: two calls carrying an
+identical `idempotency_key` form field, each timing out client-side, took the account from 156 to
+157 to 158 sessions. The field is accepted and ignored, so sending one does not make a retry safe.
+
 ### GET `/agent-run/{agent_run_id}` -- Check run status
 
 Response: `{ "id", "threadId", "status", "startedAt", "completedAt", "error" }`
