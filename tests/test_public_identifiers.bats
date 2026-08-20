@@ -141,7 +141,7 @@ ARMS
         [ -n "$regex" ] || { echo "unknown pattern id in fixture: $id"; return 1; }
         icase=""
         case "$id" in watermark-*) icase="-i" ;; esac
-        printf '%s\n' "$text" | grep -qE $icase -e "$regex" \
+        printf '%s\n' "$text" | grep -cE $icase -e "$regex" >/dev/null \
             || { echo "arm not covered: '$text' should hit $id but does not"; return 1; }
     done <"$fixture"
 }

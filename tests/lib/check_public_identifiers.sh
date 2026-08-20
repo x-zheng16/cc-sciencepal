@@ -180,7 +180,14 @@ nfiles=$(git ls-files -z | tr -cd '\0' | wc -c | tr -d ' ')
 # quietly reduce its coverage.
 for row in "${PATTERNS[@]}"; do
     id="${row%%	*}"; rest="${row#*	}"; regex="${rest#*	}"
-    printf '' | grep -qE -- "$regex" >/dev/null 2>&1
+    # -c rather than -q, deliberately. Under `set -o pipefail` a consumer that exits on its
+    # FIRST match kills the producer with SIGPIPE, and the pipeline then returns 141 even though
+    # the match succeeded, so a successful match reads as a failure. It cannot bite here, the
+    # input being a constant empty string, but this file is meant to be lifted and the safe form
+    # costs nothing. Measured by a peer on a 152 KB input: -q gives 141 with pipefail and 0
+    # without; -c gives 0 under both. Size- and position-dependent, so it hides on small inputs
+    # and on a match near the end.
+    printf '' | grep -cE -- "$regex" >/dev/null 2>&1
     [ $? -le 1 ] || fail "pattern '$id' is not a valid ERE; refusing to scan with it disabled"
 done
 
