@@ -1,12 +1,12 @@
 """Anti-regression: every plugin .py imports only stdlib, declared deps, or plugin-local modules.
 
-Stage 4 (back-port v3 canonical) of cc-python decommissioning (2026-04-25):
-plugin owns its Python deps via uv. This test ensures no script silently
-re-introduces a transitive dep on the retired shared env.
+The plugin owns its Python dependencies via uv, and stopped relying on a shared
+environment on 2026-04-25. This test ensures no script silently re-introduces a
+transitive dependency on that retired environment.
 
 SCOPE: every .py under PLUGIN_ROOT minus EXCLUDED_DIRS.
 
-LOCAL DISCOVERY: cc-sciencepal ships zero plugin-local Python packages. The
+LOCAL DISCOVERY: cc-sciencepal ships zero plugin-local Python packages. The six
 scripts in skills/sciencepal/scripts/ are standalone and import only stdlib
 plus httpx, with `_spclient.py` shared between them by sys.path insertion
 rather than by package import. The `_local_module_names` framework still

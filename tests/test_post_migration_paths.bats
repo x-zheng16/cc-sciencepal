@@ -18,10 +18,10 @@ setup() {
     fi
 }
 
-@test "skills/sciencepal/SKILL.md uses plugin-local --project, not deprecated cc-python" {
-    # Stage 4 path-flip (cc-python decom, 2026-04-25): runtime invocation
-    # must point at the plugin-local pyproject rather than the deprecated
-    # shared environment at ~/cc-omni/cc/python.
+@test "skills/sciencepal/SKILL.md points at the plugin-local project, not the retired shared one" {
+    # The shared Python environment was retired on 2026-04-25. The runtime
+    # invocation must point at the plugin-local pyproject rather than at the
+    # retired shared environment under ~/cc-omni/cc/python.
     run grep -nF -- '--project ~/cc-omni/cc/python' "$PLUGIN_ROOT/skills/sciencepal/SKILL.md"
     if [ "$status" -eq 0 ]; then
         echo "deprecated --project ~/cc-omni/cc/python references in skills/sciencepal/SKILL.md:"

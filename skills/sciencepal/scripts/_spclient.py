@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Shared env-aware SciencePal HTTP client (stg | prd).
 
-Holds two credential sets so cc can drive both environments:
+Holds two credential sets so both environments can be driven from one client:
 - stg: SCIENCEPAL_STG_ACCESS_TOKEN + SCIENCEPAL_STG_BASE_URL (https://stg.sciencepal.ai/api)
 - prd: SCIENCEPAL_PRD_ACCESS_TOKEN + SCIENCEPAL_PRD_BASE_URL (https://sciencepal.ai/api)
 
@@ -57,8 +57,9 @@ def resolve(env: str) -> tuple[str, str]:
 
 
 def make_client(env: str, timeout: float = 60.0) -> httpx.AsyncClient:
-    """Build an authed AsyncClient for the chosen env, forced DIRECT (no proxy:
-    sciencepal.ai / readyai are DIRECT in Surge; trust_env=False avoids the SOCKS env).
+    """Build an authed AsyncClient for the chosen env, forced DIRECT: the proxy
+    variables are cleared and trust_env=False, so a proxy configured in the
+    environment is never used for these calls.
 
     Tokens are short-lived (manual-refresh model): on 401 the client exits with a clear
     'refresh your token' hint rather than a raw httpx error.
