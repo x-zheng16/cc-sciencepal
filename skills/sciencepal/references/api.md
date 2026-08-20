@@ -23,6 +23,11 @@ and uses a second credential.
 
 Response: `{ "thread_id": "...", "agent_run_id": "..." }`
 
+**Slow, and not idempotent.** This call provisions a sandbox before responding, so it routinely
+exceeds a 60s client timeout while succeeding server-side. A client timeout is NOT a failure: the
+session exists and the run is live, but the caller never received the two IDs. Recover by listing
+sessions, never by retrying, since a retry starts a second run.
+
 ### GET `/agent-run/{agent_run_id}` -- Check run status
 
 Response: `{ "id", "threadId", "status", "startedAt", "completedAt", "error" }`
@@ -61,9 +66,25 @@ Omit `since` entirely to list everything; it is the only parameter sent, and whe
 query string is sent at all.
 
 Response: `{ "statuses": [{ "project_id", "status" }] }`. Rows may carry more fields; only
-`project_id` and `status` are read. Observed `status` values: `completed`, `asked`, `stopped`,
-`failed`, and JSON `null`. `null` is a value the endpoint really returns, not a missing key; what it
-denotes is not determinable from the client, so do not treat it as an error.
+`project_id` and `status` are read.
+
+`status` values are OBSERVED, not an enumeration the server publishes, so treat the list as a floor
+and expect values not on it. Measured 2026-08-20 across both environments, population = every row
+returned for one account with no `since` filter, predicate = each row's `status`:
+
+| Value          | stg (n=153) | prd (n=118) |
+| -------------- | ----------- | ----------- |
+| `completed`    | 139         | 94          |
+| `stopped`      | 8           | 9           |
+| `asked`        | 2           | 8           |
+| `initializing` | 2           | 0           |
+| `failed`       | 1           | 1           |
+| `null`         | 1           | 6           |
+
+`null` is a value the endpoint really returns, not a missing key; what it denotes is not
+determinable from the client, so do not treat it as an error. Note that `initializing` appeared only
+in the staging sample, which is a sampling artifact rather than an environment difference: it is a
+transient state, and the counts above are one instant each.
 
 A bare top-level array is tolerated as a fallback shape, but the object form above is what the
 server sends.

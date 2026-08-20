@@ -1,6 +1,6 @@
 ---
 name: sciencepal
-version: 0.5.2
+version: 0.6.0
 description: "Run and manage SciencePal science-research agent sessions across stg + prd: start tasks, list/status/stop sessions, browse/upload/download sandbox files (biology, materials, protein, plasma, patents). Use for SciencePal tasks, managing your sessions across environments, checking agent runs, or sandbox files. NOT for general web or paper search."
 ---
 
@@ -35,10 +35,13 @@ All scripts run from this skill's `scripts/` folder: `uv run --no-project --with
 ```bash
 python3 start.py -p "user question"
 # -> {thread_id, agent_run_id}
+python3 start.py -p "..." --timeout 600     # raise the initiate wait further
 ```
 
 Print both IDs immediately.
 User needs them for status checks and downloads.
+
+**A timeout here is not a failure.** `/agent/initiate` provisions a sandbox before it answers, so it is far slower than every other endpoint; the wait defaults to 300s for this call alone, against 60s everywhere else. If it still times out, the run has almost certainly started anyway and the server keeps going after the client gives up. Do NOT re-run the command, which starts a SECOND run: find the new session with `sessions.py` instead, as the newest entry in status `initializing` or `running`. Measured 2026-08-20 on both environments: three calls that timed out at the old shared 60s each still created a session (stg 153 to 155 over two calls, prd 118 to 119 over one), and the same prompt succeeded on the first try once the wait was raised.
 
 ### followup.py -- Continue an existing session
 
@@ -277,6 +280,7 @@ Do NOT load for routine script usage -- the scripts handle API calls internally.
 ## NEVER
 
 - NEVER send JSON body to `/agent/initiate` -- it requires **form-data**. JSON returns 422.
+- NEVER retry `start.py` after a timeout -- the run is already live server-side, so a retry starts a second one. Locate it with `sessions.py`.
 - NEVER assume sandbox is alive -- it auto-stops after 10min idle. Call `ensure-active` first if the run finished a while ago.
 - NEVER download from a `failed` or `stopped` run -- sandbox may have incomplete/corrupt state.
 - NEVER put downloaded files inside a project repo -- use a scratch directory outside it, such as `<output-dir>/sciencepal/<run_id>/`, or the project's own data directory.
@@ -291,6 +295,7 @@ Do NOT load for routine script usage -- the scripts handle API calls internally.
 | 404 on `/agent-run/{id}`  | Invalid run ID                          | Check ID from start.py output           |
 | 404 on sandbox file read  | File doesn't exist or sandbox destroyed | Try `sandbox.py ls` first to verify     |
 | 422 on `/agent/initiate`  | Sent JSON instead of form-data          | Scripts handle this correctly           |
+| Timeout on `start.py`     | Sandbox provisioning outran the wait    | Run IS live; find it via `sessions.py`, never retry |
 | 500 on sandbox operations | Sandbox crashed or being archived       | Call `ensure-active`, retry             |
 | Timeout on `--wait`       | Task taking too long                    | Check status manually, increase timeout |
 

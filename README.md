@@ -85,6 +85,8 @@ python3 start.py -p "..." --select manual --agent-id <agent_id>
 
 Prints the JSON response, which carries the `thread_id` and the `agent_run_id`. Keep both: status checks and stops take the run ID, follow-ups and downloads take the thread ID. Web search is on unless you pass `--no-web-search`, and agent selection is automatic unless you pass `--select manual` with `--agent-id`.
 
+Starting a run provisions a sandbox before the server responds, so this is by far the slowest call in the plugin. It waits up to 300 seconds, raise it with `--timeout` if you need to. If it does time out, the run has almost certainly started anyway, because the server carries on after the client gives up. Do not re-run the command, which would start a second run; find the new session with `sessions.py`, where it is the newest entry.
+
 By default a fresh task does not run straight through to completion. The agent asks one round of clarifying questions and parks awaiting your answer. Reply with `followup.py`, or pre-empt the gate by writing a fully specified prompt that states every parameter and explicitly instructs the agent not to ask.
 
 ### Continue an existing session
