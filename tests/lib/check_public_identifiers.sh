@@ -37,11 +37,12 @@
 # prose or code. A pattern loose enough to be future-proof is loose enough to be ignored.
 #
 # The codes are also bounded against DIGITS, not merely letters, which is a separate lesson with
-# its own measurement. Bounded against letters alone, `6dd` matched four lines of uv.lock: a
-# sha256 digest and three package URLs whose hex happens to contain the sequence, as in
-# `.../3846dd7f199d...`. Machine-generated hex is long, tracked, and matches short lowercase
-# alphanumeric tokens by chance, so any pattern that can appear inside a hash needs the digit
-# boundary.
+# its own measurement. Bounded against letters alone, `6dd` matched four lines of uv.lock (111,
+# 127, 129 and 138 at the time of writing): a sha256 digest and three package URLs whose hex
+# happens to contain the sequence. The full first one, since an elided hash cannot be re-checked:
+# https://files.pythonhosted.org/packages/cb/b1/3846dd7f199d53cb17f49cba7e651e9ce294d8497c8c150530ed11865bb8/iniconfig-2.3.0-py3-none-any.whl
+# Machine-generated hex is long, tracked, and matches short lowercase alphanumeric tokens by
+# chance, so any pattern that can appear inside a hash needs the digit boundary.
 #
 # Those two failures are one failure. A letter-class anchor treats an uppercase letter as a
 # boundary, which is the PyTorch case, and a letter-and-digit anchor still treats an underscore as
