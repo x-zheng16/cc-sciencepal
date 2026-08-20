@@ -190,7 +190,7 @@ database rather than by the API.
 ### POST `/rest/v1/messages` -- Insert a user message into a thread
 
 **Format: JSON.** Headers: `apikey`, `Authorization`, `Content-Type: application/json`,
-`Prefer: return=minimal`.
+`Prefer: return=representation`, plus `?select=message_id,thread_id,type` on the URL.
 
 | Field            | Type    | Value                                                          |
 | ---------------- | ------- | -------------------------------------------------------------- |
@@ -203,8 +203,19 @@ database rather than by the API.
 `content` is double-encoded on purpose: the row shape mirrors the web frontend, which stores the
 message envelope as a serialized string.
 
-Response: `200`, `201`, or `204` all mean success, and `Prefer: return=minimal` means the body is
-normally empty. Any other status is a failure; `401` specifically means the access token is expired.
+Response: `201` with a one-element array carrying the requested columns. `return=minimal` also
+works and is what an earlier version of `followup.py` sent, but it makes a successful-looking
+insert unverifiable: the representation is what proves the row landed on the thread that was asked
+for, with `type=user`, rather than being filtered away or misrouted. Reading it back needs SELECT
+permission as well as INSERT, and Row Level Security grants both on your own threads (verified on
+prd 2026-08-21, insert then select then delete on one thread).
+
+`message_id` is DIAGNOSTIC only. There is nowhere to send it: the start endpoint declares no such
+field and resolves its target by taking the newest human `type=user` row (see above). Quote it when
+a later step fails and the row has to be inspected or removed by hand; PostgREST `DELETE
+/rest/v1/messages?message_id=eq.<id>` returns `204` and is permitted on your own rows.
+
+Any non-2xx status is a failure; `401` specifically means the access token is expired.
 
 ## Wire Gotchas
 
