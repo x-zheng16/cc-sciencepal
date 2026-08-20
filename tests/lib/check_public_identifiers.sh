@@ -19,8 +19,24 @@
 # TWO SCOPES, and the distinction is the point. `worktree` is what a commit would publish next.
 # `HEAD` is what is published already. An earlier draft of this checker took its file LIST from
 # git and its file CONTENT from disk, which meant scrubbing a file made the gate report PASS while
-# the leak sat untouched in the committed history. Both scopes are scanned, and a finding in
-# either fails.
+# the leak sat untouched at the tip. Both scopes are scanned, and a finding in either fails.
+#
+# WHAT THIS DOES NOT COVER, stated here because the sentence above is easy to over-read. HISTORY is
+# a third scope and is NOT scanned. The contract of a PASS is "the tip is clean", not "this
+# repository does not publish these strings", and the second claim is currently FALSE. Measured
+# 2026-08-20 by scanning every commit reachable from every ref: 14 commits carry
+# ~/cc-omni/cc/plugin/sciencepal, 6 carry ~/cc-plugins/cc-python, 11 carry ~/.claude/cc-python, and
+# 26 carry the scratch-directory name, across CLAUDE.md, CLAUDE.local.md, README.md and
+# skills/sciencepal/SKILL.md. Reproduce with:
+#
+#   for s in 'cc-omni/cc/plugin/sciencepal' 'cc-plugins/cc-python' '\.claude/cc-python' 'cc-scratch'; do
+#       git rev-list --all | xargs -I{} git grep -l -E "$s" {} -- 2>/dev/null | sed 's/:.*//' | sort -u | wc -l
+#   done
+#
+# Those strings stay fetchable at the commits that introduced them for as long as the repository is
+# public, and removing them needs a history rewrite, which is not this file's decision to make.
+# Widening the contract to the stronger claim means adding the history scope here, not relabelling
+# what these two scopes already prove.
 #
 # Matching is word-boundaried, not substring, and case matters. That distinction is load-bearing.
 # A naive substring scan for the internal token `orch` matches the ordinary English word
@@ -96,8 +112,8 @@ PATTERNS=(
     "slot-token	internal	<your-slot>|(^|[^A-Za-z0-9_-])slots?([^A-Za-z0-9_-]|$)"
     "config-file	internal	(^|[^A-Za-z0-9_])(ccmd|clmd)([^A-Za-z0-9_]|$)"
     "private-component	internal	cc-research-utils|cc-python|(^|[^A-Za-z0-9_])cc-plugin-[a-z-]+"
-    "swarm-term	internal	(^|[^A-Za-z0-9_])(swarm|orch)([^A-Za-z0-9_]|$)|[a-z]-(orch|rev)([^A-Za-z0-9_]|$)"
-    "method-code	internal	(^|[^A-Za-z0-9_])(6dd|sdd|tdd|ddd|etdd|sadd|cadd)([^A-Za-z0-9_]|$)"
+    "swarm-term	internal	(^|[^A-Za-z0-9_])(swarm|orch)([^A-Za-z0-9_]|$)|[a-z]-rev([^A-Za-z0-9_]|$)"
+    "method-code	internal	(^|[^A-Za-z0-9_#])(6dd|sdd|tdd|ddd|etdd|sadd|cadd)([^A-Za-z0-9_]|$)"
     "watermark-credit	watermark	co-authored-by|noreply@anthropic|claude\.(ai/code|com/claude-code)|generated (with|by) \[?claude"
     "watermark-label	watermark	ai-generated|本内容由AI生成|🤖"
 )
@@ -107,6 +123,7 @@ CASE_INSENSITIVE="watermark-credit watermark-label"
 # --- ALLOW table -------------------------------------------------------------------------------
 # One entry per line: path, pattern id, reason. One row per (path, id) pair; there is no wildcard.
 ALLOW=(
+    "tests/lib/check_public_identifiers.sh	home-path	The scope note names the retired layouts the history measurement found, and an elided path would make that measurement unre-runnable."
     "tests/lib/check_public_identifiers.sh	scratch-dir	A pattern table must contain the strings it searches for."
     "tests/lib/check_public_identifiers.sh	slot-token	Same, for the workspace placeholder the pattern matches literally."
     "tests/lib/check_public_identifiers.sh	config-file	Same, for the private instruction-file names."
@@ -116,6 +133,12 @@ ALLOW=(
     "tests/lib/check_public_identifiers.sh	watermark-credit	Same, for the authorship markers."
     "tests/lib/check_public_identifiers.sh	watermark-label	Same, for the label markers."
     "tests/test_public_identifiers.bats	home-path	The fixtures assert on a leaking path and on its neutral rewrite."
+    "tests/test_public_identifiers.bats	users-path	The arm-coverage fixture carries one line per pattern arm, and this is that line."
+    "tests/test_public_identifiers.bats	slot-token	Same, the arm-coverage line for the workspace placeholder."
+    "tests/test_public_identifiers.bats	claude-dir	Same, the arm-coverage line for the config-directory pattern."
+    "tests/test_public_identifiers.bats	config-file	Same, the arm-coverage line for the instruction-file names."
+    "tests/test_public_identifiers.bats	private-component	Same, two arm-coverage lines, one per alternation branch."
+    "tests/test_public_identifiers.bats	watermark-label	Same, the arm-coverage line for the label markers."
     "tests/test_public_identifiers.bats	scratch-dir	The uncompilable-pattern case corrupts the scratch-dir row by name to prove the checker refuses it."
     "tests/test_public_identifiers.bats	swarm-term	The false-positive fixture contains orchestrate and PyTorch deliberately."
     "tests/test_public_identifiers.bats	method-code	The false-positive fixture contains the add-words the shape pattern matched."

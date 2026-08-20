@@ -108,6 +108,56 @@ write_repo() {
     [ "$status" -eq 0 ]
 }
 
+@test "every arm of every alternation fires, at its own line" {
+    # A per-PATTERN fixture proves the pattern matched the file somewhere, never that a particular
+    # ARM did, so a dead arm hides behind a live sibling for as long as both are in one regex. A
+    # peer adopting this table found exactly that: their role-tag arm required one alphanumeric
+    # before the hyphen and so matched nothing at all, and no per-pattern fixture could have shown
+    # it. This asserts per LINE: each line names the id that must hit it AT ITS OWN LINE NUMBER,
+    # so covering a new arm is one more line.
+    fixture="$BATS_TEST_TMPDIR/arms.txt"
+    cat >"$fixture" <<'ARMS'
+download to ~/os/cc/plugin/thing/	home-path
+a path under /Users/someone/	users-path
+see ~/.claude/docs/references/x	claude-dir
+write to cc-scratch/out	scratch-dir
+the <your-slot> placeholder	slot-token
+consult the ccmd for this	config-file
+fixed in cc-research-utils	private-component
+routed via cc-plugin-swarm	private-component
+the orch decides	swarm-term
+ask a peer named cc-thing-rev	swarm-term
+built with 6dd throughout	method-code
+Co-authored-by: someone	watermark-credit
+this is AI-generated text	watermark-label
+ARMS
+
+    C="$CHECKER"
+    while IFS=$'\t' read -r text id; do
+        [ -n "$text" ] || continue
+        regex=$(awk -v want="$id" '/^PATTERNS=\(/{f=1;next} f&&/^\)/{f=0}
+                                   f{ sub(/^ *"/,""); sub(/"$/,"");
+                                      n=split($0, p, "\t"); if (p[1]==want) { print p[3] } }' "$C")
+        [ -n "$regex" ] || { echo "unknown pattern id in fixture: $id"; return 1; }
+        icase=""
+        case "$id" in watermark-*) icase="-i" ;; esac
+        printf '%s\n' "$text" | grep -qE $icase -e "$regex" \
+            || { echo "arm not covered: '$text' should hit $id but does not"; return 1; }
+    done <"$fixture"
+}
+
+@test "a CSS hex colour is not a methodology code" {
+    # `#ddd` is a valid three-digit hex colour and `ddd` is the code for domain-driven
+    # development, so a word-boundary anchor alone matches it: `#` is a non-word character.
+    # Found by a peer running this table against a repository with stylesheets in it, which this
+    # one does not have. The left anchor now excludes `#`; `#dddddd` never matched and still does
+    # not, since its second `ddd` is preceded by a hex digit.
+    repo=$(write_repo "$BATS_TEST_TMPDIR/css" 'a { color: #ddd; border: 1px solid #dddddd; }')
+    run "$CHECKER" "$repo"
+    echo "$output"
+    [ "$status" -eq 0 ]
+}
+
 @test "the anchors are live under the matcher the checker actually uses" {
     # `git grep -E` does not honour \b: it matches nothing and exits 1, which is exactly what a
     # clean scan looks like. A pattern table written with \b would therefore be entirely inert
