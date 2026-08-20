@@ -56,12 +56,16 @@ def resolve(env: str) -> tuple[str, str]:
     return token, base_url
 
 
-def make_client(env: str) -> httpx.AsyncClient:
+def make_client(env: str, timeout: float = 60.0) -> httpx.AsyncClient:
     """Build an authed AsyncClient for the chosen env, forced DIRECT (no proxy:
     sciencepal.ai / readyai are DIRECT in Surge; trust_env=False avoids the SOCKS env).
 
     Tokens are short-lived (manual-refresh model): on 401 the client exits with a clear
     'refresh your token' hint rather than a raw httpx error.
+
+    `timeout` is per-request and defaults to 60s, which suits every read endpoint.
+    /agent/initiate provisions a sandbox before it answers and routinely exceeds that,
+    so start.py raises it; see the note there about why a timeout is not a failure.
     """
     token, base_url = resolve(env)
     web = base_url.rsplit("/api", 1)[0]
@@ -79,7 +83,7 @@ def make_client(env: str) -> httpx.AsyncClient:
     return httpx.AsyncClient(
         base_url=base_url,
         headers={"Authorization": f"Bearer {token}"},
-        timeout=60.0,
+        timeout=timeout,
         trust_env=False,
         event_hooks={"response": [_on_response]},
     )
