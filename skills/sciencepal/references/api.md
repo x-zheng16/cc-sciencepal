@@ -77,6 +77,28 @@ Response: `{ "agent_runs": [{ "id", "thread_id", "status", "started_at", "comple
 
 ## Sessions
 
+### GET `/dashboard/personal-conversations` -- Sessions with an actionable identifier
+
+No parameters. Response: `{ "projects": [...], "threads": [...], "statuses": [...] }`, three parallel
+arrays joined on `project_id`.
+
+| Array      | Fields read                                                          |
+| ---------- | -------------------------------------------------------------------- |
+| `projects` | `project_id`, `name`                                                  |
+| `threads`  | `thread_id`, `project_id`, `last_message_at`, `updated_at`            |
+| `statuses` | `project_id`, `status` (same shape and values as the endpoint below)  |
+
+This is the only listing that yields a `thread_id`, which is what the follow-up and download paths
+require, so it is what `sessions.py` uses by default. A project may own several threads; the one a
+follow-up should target is the most recently active by `last_message_at`.
+
+Still absent from every listing: `agent_run_id`. Status checks and stops need it, and it comes from
+the initiate response or from `GET /thread/{thread_id}/agent-runs`.
+
+Note for anyone verifying this against the deployed schema: the OpenAPI document is served at the
+HOST root, not under the `/api` base URL, so a client configured with that base has to hop up one
+level to reach it. Its `paths` are then written with the `/api` prefix included.
+
 ### GET `/projects/statuses` -- List the account's sessions and their statuses
 
 | Query param | Required | Description                                  |

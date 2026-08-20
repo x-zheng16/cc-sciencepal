@@ -108,7 +108,9 @@ python3 sessions.py --env prd --json
 python3 sessions.py --since 2026-08-01T00:00:00Z
 ```
 
-Lists the account's projects with their run statuses. `--json` prints the raw response; `--since` takes an ISO 8601 timestamp and limits the list to sessions updated after it.
+Lists the account's sessions newest first, each row carrying its run status, the `thread_id` you need for follow-ups and downloads, and the project name. `--json` prints the raw response, and `--since` takes an ISO 8601 timestamp and drops sessions with no activity after it.
+
+`--statuses-only` switches to a narrower endpoint that returns project identifiers and statuses alone. It is the fallback, and its `--since` is applied server-side rather than locally.
 
 ### Check status
 

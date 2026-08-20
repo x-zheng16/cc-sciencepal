@@ -71,11 +71,15 @@ Terminal statuses: `completed`, `failed`, `stopped`.
 ### sessions.py -- List / manage all sessions
 
 ```bash
-python3 sessions.py --env prd           # list the account's projects + run statuses
-python3 sessions.py --env stg --json    # raw JSON
+python3 sessions.py --env prd                  # status + thread_id + name, newest first
+python3 sessions.py --env prd --since 2026-08-19
+python3 sessions.py --env stg --json           # raw response
+python3 sessions.py --env prd --statuses-only  # narrow endpoint, server-side --since
 ```
 
-The entry point for "manage all my sessions" — see what's running/done across the account, then act on a specific run with status.py / stop.py / sandbox.py.
+The entry point for "manage all my sessions". Each row carries the **thread_id**, which is what `followup.py` and `sandbox.py download` take, so a session you find here is one you can act on. `--statuses-only` uses the older `/projects/statuses`, which returns `project_id` and status alone; no command accepts a `project_id`, so prefer the default unless you need its server-side `--since`.
+
+Note what a listing still cannot give you: `agent_run_id`, which `status.py` and `stop.py` require. That comes from `start.py` output or from `GET /thread/{id}/agent-runs`. Keep the IDs `start.py` prints.
 
 ### stop.py -- Stop a run
 
