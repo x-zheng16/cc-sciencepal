@@ -1,6 +1,6 @@
 {
   "name": "cc-sciencepal",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "description": "SciencePal science research agents (stg + prd): start tasks, list/status/stop sessions, browse/download sandbox files",
   "author": {
     "name": "Xiang Zheng",
