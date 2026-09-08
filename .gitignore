@@ -6,3 +6,6 @@ notifications/
 memory/
 .worktrees/
 CLAUDE.local.md
+
+# Claude harness generated state
+.claude/cron-owner-bind.lock
